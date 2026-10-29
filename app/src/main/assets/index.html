@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>J.A.R.V.I.S</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#02070d; --panel:rgba(8,30,44,.55); --line:rgba(var(--rgb),.28);
+  --cyan:#29e3ff; --cyan2:#7ff2ff; --dim:#5f8fa3; --text:#d8f7ff;
+  --warn:#ffb340; --hot:#ff5a4f; --rgb:41,227,255; --lvl:1;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Rajdhani',system-ui,sans-serif;overflow:hidden}
+body{
+  display:flex;flex-direction:column;
+  background:
+    radial-gradient(ellipse at 50% 32%, rgba(var(--rgb),.10), transparent 60%),
+    linear-gradient(rgba(var(--rgb),.035) 1px, transparent 1px) 0 0/100% 26px,
+    linear-gradient(90deg, rgba(var(--rgb),.035) 1px, transparent 1px) 0 0/26px 100%,
+    var(--bg);
+}
+.mono{font-family:'Orbitron',sans-serif;letter-spacing:.08em}
+
+/* top bar */
+header{display:flex;justify-content:space-between;align-items:flex-start;padding:14px 16px 0}
+.clock{font-family:'Orbitron',sans-serif;font-size:34px;font-weight:700;color:var(--cyan2);text-shadow:0 0 14px rgba(var(--rgb),.55);line-height:1}
+.date{font-size:14px;color:var(--dim);letter-spacing:.12em;text-transform:uppercase;margin-top:4px}
+.stats{text-align:right;font-size:14px;color:var(--dim);letter-spacing:.06em}
+.stats b{color:var(--cyan2);font-weight:600}
+.stats div{margin-bottom:3px}
+.bar{display:inline-block;width:46px;height:6px;border:1px solid var(--line);vertical-align:middle;margin-left:6px;position:relative}
+.bar i{position:absolute;inset:1px auto 1px 1px;background:var(--cyan);box-shadow:0 0 6px var(--cyan)}
+
+/* reactor */
+.core-wrap{position:relative;display:flex;flex-direction:column;align-items:center;padding-top:6px}
+.title{font-family:'Orbitron',sans-serif;font-size:13px;letter-spacing:.5em;color:var(--cyan);opacity:.85;margin:4px 0 0 .5em}
+#reactor{width:min(62vw,250px);height:min(62vw,250px);cursor:pointer;position:relative;margin-top:4px}
+#reactor svg{width:100%;height:100%;overflow:visible}
+.ring{transform-origin:150px 150px;transform-box:view-box}
+.r1{animation:spin 26s linear infinite}
+.r2{animation:spin 14s linear infinite reverse}
+.r3{animation:spin 8s linear infinite}
+.r4{animation:spin 40s linear infinite reverse}
+@keyframes spin{to{transform:rotate(360deg)}}
+.st-listening .r2{animation-duration:4s}.st-listening .r3{animation-duration:2.4s}
+.st-thinking .r1{animation-duration:5s}.st-thinking .r2{animation-duration:2.2s}.st-thinking .r3{animation-duration:1.2s}
+.st-speaking .r3{animation-duration:3s}
+#coreGlow{transition:r .08s linear}
+.st-listening #coreFill{fill:#bff9ff}
+.st-thinking .ring{stroke:var(--warn)!important}
+.st-thinking #coreFill{fill:#ffe1a8}
+.status{font-family:'Orbitron',sans-serif;font-size:12px;letter-spacing:.3em;color:var(--cyan);margin-top:6px;min-height:16px;text-transform:uppercase}
+.partial{font-size:18px;color:var(--text);min-height:24px;padding:2px 20px;text-align:center;opacity:.9}
+
+/* log */
+#log{flex:1;overflow-y:auto;padding:6px 14px 10px;display:flex;flex-direction:column;gap:8px;mask-image:linear-gradient(to bottom,transparent 0,#000 18px)}
+.msg{max-width:88%;padding:8px 12px;font-size:17px;line-height:1.35;border:1px solid var(--line);background:var(--panel);position:relative;white-space:pre-wrap;word-wrap:break-word}
+.msg.user{align-self:flex-end;border-color:rgba(127,242,255,.18);background:rgba(var(--rgb),.08);color:#eafcff}
+.msg.ai{align-self:flex-start;border-left:2px solid var(--cyan);margin-top:6px}
+.msg.ai::before{content:'JARVIS';position:absolute;top:-8px;left:8px;font-family:'Orbitron',sans-serif;font-size:8px;letter-spacing:.2em;color:var(--cyan);background:var(--bg);padding:0 4px}
+.msg.sys{align-self:center;font-size:13px;color:var(--dim);border:none;background:none;padding:2px;letter-spacing:.06em}
+.msg.err{border-color:rgba(255,90,79,.5);color:#ffc9c4}
+
+/* input */
+footer{display:flex;gap:8px;padding:8px 12px calc(12px + env(safe-area-inset-bottom));align-items:center;border-top:1px solid var(--line);background:rgba(2,10,16,.85)}
+#inp{flex:1;min-width:0;background:rgba(var(--rgb),.06);border:1px solid var(--line);color:var(--text);font:500 17px 'Rajdhani',sans-serif;padding:10px 12px;outline:none}
+#inp:focus{border-color:var(--cyan)}
+.btn{flex:none;width:44px;height:44px;border:1px solid var(--line);background:rgba(var(--rgb),.08);color:var(--cyan);display:grid;place-items:center;cursor:pointer}
+.btn:active{background:rgba(var(--rgb),.25)}
+.btn svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#mic.on{background:var(--cyan);color:var(--bg);box-shadow:0 0 18px var(--cyan)}
+
+/* settings */
+#settings{position:fixed;inset:0;background:rgba(1,6,10,.94);display:none;flex-direction:column;padding:20px 18px;overflow-y:auto;z-index:10}
+#settings.open{display:flex}
+#settings h2{font-family:'Orbitron',sans-serif;font-size:16px;letter-spacing:.25em;color:var(--cyan);margin-bottom:18px}
+#settings label{font-size:13px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;margin:14px 0 6px;display:block}
+#settings input,#settings select{width:100%;background:rgba(var(--rgb),.06);border:1px solid var(--line);color:var(--text);font:500 16px 'Rajdhani',sans-serif;padding:10px 12px;outline:none}
+#settings select option{background:#06141d}
+.hint{font-size:13px;color:var(--dim);margin-top:5px;line-height:1.35}
+.row{display:flex;gap:10px;margin-top:22px}
+.pbtn{flex:1;padding:12px;border:1px solid var(--cyan);background:rgba(var(--rgb),.12);color:var(--cyan2);font:600 15px 'Orbitron',sans-serif;letter-spacing:.15em;cursor:pointer}
+.pbtn.ghost{border-color:var(--line);color:var(--dim);background:none}
+
+/* ---------- persona: TARS ---------- */
+#tv{display:none}
+body.tars #jv{display:none}
+body.tars #tv{display:inline}
+body.tars{
+  --bg:#0a0a0b; --panel:rgba(30,30,28,.6); --rgb:232,226,212; --line:rgba(232,226,212,.22);
+  --cyan:#e9e4d6; --cyan2:#ffffff; --dim:#8a867c; --text:#ece9e1; --warn:#ff9f2e;
+}
+body.tars .clock,body.tars .title,body.tars .status,body.tars #settings h2,body.tars .pbtn{font-family:'Share Tech Mono',ui-monospace,monospace}
+body.tars .clock{text-shadow:none;letter-spacing:.04em}
+body.tars .title{letter-spacing:.8em}
+body.tars .msg.ai::before{content:'TARS';font-family:'Share Tech Mono',monospace}
+body.tars .msg.ai{border-left-color:var(--warn)}
+body.tars #mic.on{background:var(--warn);box-shadow:0 0 14px var(--warn)}
+body.tars .bar i{background:var(--warn);box-shadow:none}
+.tb{transform-box:fill-box;transform-origin:center;animation:eq 1.6s ease-in-out infinite}
+@keyframes eq{0%,100%{transform:scaleY(.25)}50%{transform:scaleY(1)}}
+#tarsBars{transform-box:view-box;transform-origin:150px 150px;transform:scaleY(var(--lvl));transition:transform .08s linear}
+.st-listening .tb{animation-duration:.55s}
+.st-speaking .tb{animation-duration:.8s}
+.st-thinking .tb{animation-duration:2.6s;fill:#ff9f2e}
+#scan{opacity:0}
+.st-thinking #scan{opacity:1;animation:scan 1.1s linear infinite}
+@keyframes scan{from{transform:translateY(-78px)}to{transform:translateY(78px)}}
+.rng{display:flex;align-items:center;gap:12px}
+.rng input{flex:1;accent-color:var(--cyan);padding:0!important;border:none!important;background:none!important}
+.rng b{font-family:'Orbitron',sans-serif;font-size:14px;color:var(--cyan2);min-width:48px;text-align:right}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="clock" id="clock">00:00</div>
+    <div class="date" id="date"></div>
+  </div>
+  <div class="stats">
+    <div>GÜÇ <b id="batt">--</b><span class="bar"><i id="battBar" style="width:0"></i></span></div>
+    <div id="wx">HAVA <b>--</b></div>
+    <div id="mode">MOD <b>--</b></div>
+  </div>
+</header>
+
+<div class="core-wrap">
+  <div class="title" id="ptitle">J.A.R.V.I.S</div>
+  <div id="reactor" class="st-idle" aria-label="Konuşmak için dokun">
+    <svg viewBox="0 0 300 300">
+      <defs>
+        <radialGradient id="g" cx="50%" cy="50%" r="50%">
+          <stop offset="0" stop-color="#e8fdff"/>
+          <stop offset=".35" stop-color="#7ff2ff" stop-opacity=".85"/>
+          <stop offset="1" stop-color="#29e3ff" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <g id="jv">
+      <circle class="ring r4" cx="150" cy="150" r="146" stroke="#29e3ff" stroke-opacity=".25" stroke-width="1" fill="none" stroke-dasharray="2 6"/>
+      <circle class="ring r1" cx="150" cy="150" r="132" stroke="#29e3ff" stroke-opacity=".7" stroke-width="2" fill="none" stroke-dasharray="120 20 40 20 200 30"/>
+      <circle class="ring r2" cx="150" cy="150" r="112" stroke="#7ff2ff" stroke-opacity=".9" stroke-width="7" fill="none" stroke-dasharray="44 14"/>
+      <circle class="ring r3" cx="150" cy="150" r="92" stroke="#29e3ff" stroke-opacity=".55" stroke-width="2" fill="none" stroke-dasharray="6 10 60 10"/>
+      <circle cx="150" cy="150" r="78" stroke="#29e3ff" stroke-opacity=".35" stroke-width="1" fill="rgba(41,227,255,.05)"/>
+      <g class="ring r1">
+        <path d="M150 96 L196.8 177 L103.2 177 Z" stroke="#29e3ff" stroke-width="2.5" fill="rgba(41,227,255,.10)"/>
+      </g>
+      <circle id="coreGlow" cx="150" cy="150" r="52" fill="url(#g)"/>
+      <circle id="coreFill" cx="150" cy="150" r="20" fill="#e8fdff"/>
+      </g>
+      <g id="tv">
+        <path d="M40 80V40h40M220 40h40v40M260 220v40h-40M80 260H40v-40" stroke="#e9e4d6" stroke-width="3" fill="none"/>
+        <rect x="64" y="64" width="172" height="172" stroke="#e9e4d6" stroke-opacity=".35" stroke-width="1" fill="rgba(233,228,214,.03)" stroke-dasharray="3 5"/>
+        <path d="M150 48v12M150 240v12M48 150h12M240 150h12" stroke="#ff9f2e" stroke-width="2"/>
+        <g id="tarsBars"><rect class="tb" x="101.0" y="133.0" width="7" height="34" fill="#e9e4d6" style="animation-delay:-0.00s"/><rect class="tb" x="112.5" y="124.0" width="7" height="52" fill="#e9e4d6" style="animation-delay:-0.17s"/><rect class="tb" x="124.0" y="115.0" width="7" height="70" fill="#e9e4d6" style="animation-delay:-0.34s"/><rect class="tb" x="135.5" y="106.0" width="7" height="88" fill="#e9e4d6" style="animation-delay:-0.51s"/><rect class="tb" x="147.0" y="100.0" width="7" height="100" fill="#e9e4d6" style="animation-delay:-0.68s"/><rect class="tb" x="158.5" y="106.0" width="7" height="88" fill="#e9e4d6" style="animation-delay:-0.85s"/><rect class="tb" x="170.0" y="115.0" width="7" height="70" fill="#e9e4d6" style="animation-delay:-1.02s"/><rect class="tb" x="181.5" y="124.0" width="7" height="52" fill="#e9e4d6" style="animation-delay:-1.19s"/><rect class="tb" x="193.0" y="133.0" width="7" height="34" fill="#e9e4d6" style="animation-delay:-1.36s"/></g>
+        <rect id="scan" x="66" y="149" width="168" height="2" fill="#ff9f2e"/>
+        <text x="40" y="288" fill="#8a867c" font-family="Share Tech Mono,monospace" font-size="11" letter-spacing="1">MİZAH <tspan id="hum" fill="#e9e4d6">75%</tspan></text>
+        <text x="260" y="288" text-anchor="end" fill="#8a867c" font-family="Share Tech Mono,monospace" font-size="11" letter-spacing="1">DÜRÜSTLÜK <tspan id="hon" fill="#e9e4d6">90%</tspan></text>
+        <text x="150" y="226" text-anchor="middle" fill="#8a867c" font-family="Share Tech Mono,monospace" font-size="10" letter-spacing="3">ÇEVRİMİÇİ</text>
+      </g>
+    </svg>
+  </div>
+  <div class="status" id="status">Hazır</div>
+  <div class="partial" id="partial"></div>
+</div>
+
+<div id="log"></div>
+
+<footer>
+  <button class="btn" id="gear" aria-label="Ayarlar"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  <input id="inp" placeholder="Komut yaz ya da çekirdeğe dokun…" autocomplete="off" enterkeyhint="send">
+  <button class="btn" id="send" aria-label="Gönder"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg></button>
+  <button class="btn" id="mic" aria-label="Mikrofon"><svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/></svg></button>
+</footer>
+
+<div id="settings">
+  <h2>SİSTEM AYARLARI</h2>
+  <label for="sPersona">Kişilik</label>
+  <select id="sPersona">
+    <option value="jarvis">JARVIS · kibar, zarif uşak</option>
+    <option value="tars">TARS · kuru mizahlı, dobra robot</option>
+  </select>
+
+  <label for="sHumor">Mizah ayarı</label>
+  <div class="rng"><input id="sHumor" type="range" min="0" max="100" step="5"><b id="sHumorV"></b></div>
+  <label for="sHonesty">Dürüstlük ayarı</label>
+  <div class="rng"><input id="sHonesty" type="range" min="0" max="100" step="5"><b id="sHonestyV"></b></div>
+  <div class="hint">Sesli de değiştirebilirsin: "TARS'a geç", "mizah ayarını yüzde 60 yap".</div>
+
+  <label for="sKey">Claude API anahtarı</label>
+  <input id="sKey" type="password" placeholder="sk-ant-..." autocomplete="off">
+  <div class="hint">console.anthropic.com → API Keys. Anahtar sadece bu telefonda saklanır. Boş bırakırsan temel komutlar (saat, hava, fener, alarm, uygulama açma) yine çalışır.</div>
+
+  <label for="sModel">Model</label>
+  <select id="sModel">
+    <option value="claude-haiku-5-5">Claude Haiku 5.5 (hızlı, ucuz)</option>
+    <option value="claude-sonnet-5-5">Claude Sonnet 5.5 (dengeli)</option>
+    <option value="claude-opus-5-5">Claude Opus 5.5 (en akıllı)</option>
+  </select>
+
+  <label for="sTitle">Sana nasıl hitap etsin?</label>
+  <input id="sTitle" placeholder="efendim">
+
+  <label for="sCity">Varsayılan şehir (konum yoksa)</label>
+  <input id="sCity" placeholder="İstanbul">
+
+  <label for="sRate">Konuşma hızı</label>
+  <select id="sRate">
+    <option value="0.85">Yavaş</option>
+    <option value="1">Normal</option>
+    <option value="1.15">Hızlı</option>
+    <option value="1.3">Çok hızlı</option>
+  </select>
+
+  <label for="sAuto">Cevaptan sonra tekrar dinle</label>
+  <select id="sAuto">
+    <option value="0">Hayır</option>
+    <option value="1">Evet (sohbet modu)</option>
+  </select>
+
+  <div class="row">
+    <button class="pbtn ghost" id="sClear">SOHBETİ SİL</button>
+    <button class="pbtn ghost" id="sPerm">İZİNLER</button>
+  </div>
+  <div class="row">
+    <button class="pbtn ghost" id="sCancel">KAPAT</button>
+    <button class="pbtn" id="sSave">KAYDET</button>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const A = window.Android || null; // native bridge
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem('jv_'+k); return v===null? d : JSON.parse(v);}catch(e){return d;} },
+  set(k, v){ try{ localStorage.setItem('jv_'+k, JSON.stringify(v)); }catch(e){} }
+};
+
+let cfg = Object.assign({ key:'', model:'claude-haiku-5-5', title:'efendim', city:'İstanbul', rate:'1', auto:'0', persona:'jarvis', humor:75, honesty:90 }, store.get('cfg', {}));
+const isTars = () => cfg.persona === 'tars';
+const pname = () => isTars() ? 'TARS' : 'JARVIS';
+function applyPersona(){
+  document.body.classList.toggle('tars', isTars());
+  $('ptitle').textContent = isTars() ? 'T · A · R · S' : 'J.A.R.V.I.S';
+  document.title = pname();
+  $('hum').textContent = cfg.humor+'%'; $('hon').textContent = cfg.honesty+'%';
+  $('inp').placeholder = isTars() ? 'Komut gir. Ya da konuş, dinliyorum.' : 'Komut yaz ya da çekirdeğe dokun…';
+}
+function saveCfg(){ store.set('cfg', cfg); applyPersona(); updateMode(); }
+const clamp = v => Math.max(0, Math.min(100, Math.round((+v||0)/5)*5));
+let history = store.get('history', []);
+let busy = false, listening = false, lastWeather = null;
+
+/* ---------- UI helpers ---------- */
+const log = $('log');
+function addMsg(text, cls){
+  const d = document.createElement('div');
+  d.className = 'msg ' + cls; d.textContent = text;
+  log.appendChild(d); log.scrollTop = log.scrollHeight;
+  return d;
+}
+function setState(s, label){
+  $('reactor').className = 'st-' + s;
+  $('status').textContent = label || ({idle:'Hazır', listening:'Dinliyorum', thinking:'İşleniyor', speaking:'Konuşuyor'}[s] || '');
+  $('mic').classList.toggle('on', s==='listening');
+}
+function speak(text){
+  if(!text) return;
+  const clean = text.replace(/[*#_`>|]/g,'').replace(/\s+/g,' ').trim();
+  if(A) A.speak(clean, parseFloat(cfg.rate)||1, isTars() ? 0.72 : 0.92);
+  else if('speechSynthesis' in window){ const u=new SpeechSynthesisUtterance(clean); u.lang='tr-TR'; speechSynthesis.speak(u); }
+}
+function say(text, opts={}){
+  addMsg(text, opts.err ? 'ai err' : 'ai');
+  if(!opts.silent) speak(text);
+}
+function vib(ms){ try{ A && A.vibrate(ms); }catch(e){} }
+
+/* ---------- clock / hud ---------- */
+const DAYS = ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
+const MONTHS = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+const pad = n => String(n).padStart(2,'0');
+function tick(){
+  const d = new Date();
+  $('clock').textContent = pad(d.getHours())+':'+pad(d.getMinutes());
+  $('date').textContent = DAYS[d.getDay()]+' · '+d.getDate()+' '+MONTHS[d.getMonth()];
+}
+function nowText(){
+  const d = new Date();
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()} ${DAYS[d.getDay()]}, saat ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function battery(){
+  if(!A) return null;
+  try{ const b = JSON.parse(A.battery()); if(b.level!=null){ $('batt').textContent = b.level+'%'+(b.charging?' ⚡':''); $('battBar').style.width = (b.level*0.42)+'px'; } return b; }catch(e){ return null; }
+}
+function updateMode(){ $('mode').innerHTML = 'MOD <b>'+(cfg.key ? 'YAPAY ZEKÂ' : 'TEMEL')+'</b>'; }
+
+/* ---------- native http ---------- */
+const pending = {};
+let hid = 0;
+window.onHttp = (id, status, body) => { const p = pending[id]; if(p){ delete pending[id]; p({status, body}); } };
+function http(method, url, headers, body){
+  return new Promise(res => {
+    if(A){
+      const id = 'h'+(++hid); pending[id] = res;
+      A.http(id, method, url, JSON.stringify(headers||{}), body||'');
+    } else {
+      fetch(url, {method, headers, body: method==='GET'?undefined:body})
+        .then(r => r.text().then(t => res({status:r.status, body:t})))
+        .catch(e => res({status:0, body:JSON.stringify({error:{message:String(e)}})}));
+    }
+  });
+}
+async function getJSON(url){
+  const r = await http('GET', url, {}, '');
+  try{ return JSON.parse(r.body); }catch(e){ return null; }
+}
+
+/* ---------- weather ---------- */
+const WMO = {0:'açık',1:'çoğunlukla açık',2:'parçalı bulutlu',3:'kapalı',45:'sisli',48:'kırağılı sis',51:'hafif çisenti',53:'çisenti',55:'yoğun çisenti',61:'hafif yağmurlu',63:'yağmurlu',65:'şiddetli yağmurlu',66:'dondurucu yağmur',67:'şiddetli dondurucu yağmur',71:'hafif kar yağışlı',73:'kar yağışlı',75:'yoğun kar yağışlı',77:'kar taneli',80:'hafif sağanak',81:'sağanak yağışlı',82:'şiddetli sağanak',85:'kar sağanaklı',86:'yoğun kar sağanaklı',95:'gök gürültülü fırtına',96:'dolulu fırtına',99:'şiddetli dolulu fırtına'};
+async function weather(city){
+  let lat, lon, name;
+  if(city){
+    const g = await getJSON('https://geocoding-api.open-meteo.com/v1/search?count=1&language=tr&name='+encodeURIComponent(city));
+    if(!g || !g.results || !g.results.length) return {error:`"${city}" bulunamadı`};
+    ({latitude:lat, longitude:lon, name} = g.results[0]);
+  } else {
+    let loc = null;
+    try{ const l = A && A.location(); if(l) loc = JSON.parse(l); }catch(e){}
+    if(loc){ lat = loc.lat; lon = loc.lon; name = 'Bulunduğunuz konum'; }
+    else return weather(cfg.city || 'İstanbul');
+  }
+  const w = await getJSON(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=3`);
+  if(!w || !w.current) return {error:'Hava durumu alınamadı'};
+  const c = w.current, dl = w.daily;
+  const out = {
+    yer: name,
+    simdi: `${Math.round(c.temperature_2m)}°C, ${WMO[c.weather_code]||'bilinmiyor'}, hissedilen ${Math.round(c.apparent_temperature)}°C, nem %${c.relative_humidity_2m}, rüzgar ${Math.round(c.wind_speed_10m)} km/s`,
+    gunler: dl.time.map((t,i)=>({tarih:t, durum:WMO[dl.weather_code[i]]||'', en_yuksek:Math.round(dl.temperature_2m_max[i]), en_dusuk:Math.round(dl.temperature_2m_min[i]), yagis_ihtimali:dl.precipitation_probability_max[i]}))
+  };
+  lastWeather = {t:Math.round(c.temperature_2m), d:WMO[c.weather_code]||''};
+  $('wx').innerHTML = 'HAVA <b>'+lastWeather.t+'°</b> '+lastWeather.d.toUpperCase();
+  return out;
+}
+
+/* ---------- notes ---------- */
+function notes(){ return store.get('notes', []); }
+
+/* ---------- tools (shared by AI + basic mode) ---------- */
+function parseAt(at){
+  const m = String(at).match(/(\d{1,2})[:.](\d{2})/);
+  if(!m) return null;
+  const now = new Date(), t = new Date();
+  t.setHours(+m[1], +m[2], 0, 0);
+  if(t <= now) t.setDate(t.getDate()+1);
+  return (t - now)/60000;
+}
+const TOOLS = {
+  get_time: () => nowText(),
+  get_weather: async ({city}) => JSON.stringify(await weather(city)),
+  battery_status: () => { const b = battery(); return b ? `Pil %${b.level}${b.charging?', şarj oluyor':''}` : 'Pil bilgisi yok'; },
+  flashlight: ({on}) => A ? A.flashlight(!!on) : 'Cihaz yok',
+  open_app: ({name}) => A ? A.openApp(name) : 'Cihaz yok',
+  set_alarm: ({hour, minute, label}) => A ? A.setAlarm(hour|0, minute|0, label||'') : 'Cihaz yok',
+  set_timer: ({seconds, label}) => A ? A.setTimer(Math.max(1, seconds|0), label||'') : 'Cihaz yok',
+  set_reminder: ({minutes_from_now, at, text}) => {
+    let mins = minutes_from_now != null ? +minutes_from_now : (at ? parseAt(at) : null);
+    if(mins == null || isNaN(mins) || mins <= 0) return 'Hatırlatma zamanı anlaşılamadı';
+    if(A) A.remind(mins, text||'Hatırlatma');
+    const when = new Date(Date.now()+mins*60000);
+    return `Hatırlatma ${pad(when.getHours())}:${pad(when.getMinutes())} için kuruldu: ${text}`;
+  },
+  call_contact: ({name_or_number}) => A ? A.call(name_or_number) : 'Cihaz yok',
+  volume: ({action, percent}) => A ? A.volume(action||'set', percent==null?50:percent|0) : 'Cihaz yok',
+  media: ({action}) => A ? A.media(action||'play_pause') : 'Cihaz yok',
+  open_url: ({url}) => A ? A.openUrl(url) : (window.open(url), 'Açıldı'),
+  web_search: ({query}) => { const u='https://www.google.com/search?q='+encodeURIComponent(query); return A ? A.openUrl(u) : (window.open(u),'Açıldı'); },
+  youtube: ({query}) => { const u='https://www.youtube.com/results?search_query='+encodeURIComponent(query); return A ? A.openUrl(u) : (window.open(u),'Açıldı'); },
+  navigate: ({destination}) => { const u='google.navigation:q='+encodeURIComponent(destination); return A ? A.openUrl(u) : 'Cihaz yok'; },
+  open_settings: ({page}) => A ? A.openSettings(page||'general') : 'Cihaz yok',
+  save_note: ({text}) => { const n = notes(); n.push({text, t:nowText()}); store.set('notes', n); return 'Not kaydedildi. Toplam not: '+n.length; },
+  list_notes: () => { const n = notes(); return n.length ? n.map((x,i)=>`${i+1}. ${x.text} (${x.t})`).join('\n') : 'Kayıtlı not yok'; },
+  set_persona: ({persona}) => { const p = String(persona).toLowerCase().includes('tars') ? 'tars' : 'jarvis'; cfg.persona = p; saveCfg(); return 'Kişilik değiştirildi: '+pname(); },
+  set_personality: ({humor, honesty}) => { if(humor!=null) cfg.humor = clamp(humor); if(honesty!=null) cfg.honesty = clamp(honesty); saveCfg(); return `Mizah %${cfg.humor}, dürüstlük %${cfg.honesty}`; },
+  delete_note: ({index}) => { const n = notes(); if(index==='all'||index===0){ store.set('notes',[]); return 'Tüm notlar silindi'; } const i=(index|0)-1; if(i<0||i>=n.length) return 'Böyle bir not yok'; const r=n.splice(i,1); store.set('notes',n); return 'Silindi: '+r[0].text; }
+};
+const obj = (props, req=[]) => ({type:'object', properties:props, required:req});
+const TOOL_DEFS = [
+  {name:'get_time', description:'Şu anki tarih ve saati verir.', input_schema:obj({})},
+  {name:'get_weather', description:'Hava durumu ve 3 günlük tahmin. Şehir verilmezse kullanıcının konumu.', input_schema:obj({city:{type:'string'}})},
+  {name:'battery_status', description:'Telefonun pil seviyesi.', input_schema:obj({})},
+  {name:'flashlight', description:'Feneri açar veya kapatır.', input_schema:obj({on:{type:'boolean'}},['on'])},
+  {name:'open_app', description:'Telefondaki bir uygulamayı adıyla açar (ör. WhatsApp, Instagram, Kamera, Spotify).', input_schema:obj({name:{type:'string'}},['name'])},
+  {name:'set_alarm', description:'Saat uygulamasında alarm kurar (24 saat formatı).', input_schema:obj({hour:{type:'integer'},minute:{type:'integer'},label:{type:'string'}},['hour','minute'])},
+  {name:'set_timer', description:'Geri sayım zamanlayıcısı kurar.', input_schema:obj({seconds:{type:'integer'},label:{type:'string'}},['seconds'])},
+  {name:'set_reminder', description:'Bildirimle hatırlatma kurar. minutes_from_now (dakika sonra) veya at ("HH:MM") ver.', input_schema:obj({minutes_from_now:{type:'number'},at:{type:'string'},text:{type:'string'}},['text'])},
+  {name:'call_contact', description:'Rehberdeki bir kişiyi adıyla ya da bir numarayı arar.', input_schema:obj({name_or_number:{type:'string'}},['name_or_number'])},
+  {name:'volume', description:'Medya sesini ayarlar.', input_schema:obj({action:{type:'string',enum:['up','down','mute','unmute','set']},percent:{type:'integer'}},['action'])},
+  {name:'media', description:'Çalan müziği/videoyu kontrol eder.', input_schema:obj({action:{type:'string',enum:['play_pause','play','pause','next','previous']}},['action'])},
+  {name:'web_search', description:'Google\'da arama açar.', input_schema:obj({query:{type:'string'}},['query'])},
+  {name:'youtube', description:'YouTube\'da arama açar.', input_schema:obj({query:{type:'string'}},['query'])},
+  {name:'navigate', description:'Google Haritalar ile yol tarifi başlatır.', input_schema:obj({destination:{type:'string'}},['destination'])},
+  {name:'open_url', description:'Bir web adresini açar.', input_schema:obj({url:{type:'string'}},['url'])},
+  {name:'open_settings', description:'Telefon ayarlar sayfasını açar.', input_schema:obj({page:{type:'string',enum:['wifi','bluetooth','display','sound','location','battery','app','general']}},['page'])},
+  {name:'save_note', description:'Kullanıcı için not kaydeder.', input_schema:obj({text:{type:'string'}},['text'])},
+  {name:'list_notes', description:'Kayıtlı notları listeler.', input_schema:obj({})},
+  {name:'set_persona', description:'Asistanın kişiliğini JARVIS veya TARS olarak değiştirir.', input_schema:obj({persona:{type:'string',enum:['jarvis','tars']}},['persona'])},
+  {name:'set_personality', description:'Mizah ve/veya dürüstlük ayarını yüzde (0-100) olarak değiştirir.', input_schema:obj({humor:{type:'integer'},honesty:{type:'integer'}})},
+  {name:'delete_note', description:'Numarasıyla not siler; hepsi için 0.', input_schema:obj({index:{type:'integer'}},['index'])}
+];
+
+/* ---------- Claude ---------- */
+function systemPrompt(){
+  const common = `Kullanıcının Android telefonunda çalışıyorsun ve sesli konuşuyorsun.
+- Türkçe konuş. Cevapların sesli okunacak: kısa tut (genelde 1-3 cümle); markdown, madde işareti, emoji, tablo kullanma.
+- Telefonla ilgili istekler için araçları kullan; işlemden sonra ne yaptığını kısaca söyle. Araç başarısız olursa nedenini söyle.
+- Mizah ayarın %${cfg.humor}: %0 tamamen ciddi, %50 ara sıra espri, %100 neredeyse her cevapta espri. Buna göre ayarla.
+- Dürüstlük ayarın %${cfg.honesty}: yüksekse dobra ve açık sözlüsün, düşükse daha diplomatik ve yumuşak konuşursun. Ama asla yalan bilgi verme ve yanlış bir işlemi yapmış gibi davranma.
+- Kullanıcı ayarlarını değiştirmek isterse (ör. "mizahı %60 yap", "JARVIS'e geç") ilgili aracı kullan.
+- Şu an: ${nowText()}.`;
+  if(isTars()) return `Sen TARS'sın: eski bir askeri görev robotundan kalma, kuru ve düz mizahlı, son derece yetenekli bir asistan. Kısa, net, robotik cümlelerle konuşursun; esprilerini ifadesiz, ciddi bir tonla yaparsın. Arada ayarlarına atıf yapabilirsin ("mizah ayarım şu an yüzde ${cfg.humor}"). Kullanıcıya adıyla veya hiç hitap etmeden konuşursun, "efendim" demezsin. Sadakatlisin ve görevi her zaman yaparsın.
+${common}`;
+  return `Sen J.A.R.V.I.S'sin: zeki, sakin, nazik ve ince esprili bir İngiliz uşağı tavrında yapay zekâ asistanı. Kullanıcıya "${cfg.title||'efendim'}" diye hitap edersin (her cümlede değil, doğal şekilde).
+${common}`;
+}
+function trimHistory(h){
+  let out = h.slice(-24);
+  while(out.length && !(out[0].role==='user' && typeof out[0].content==='string')) out.shift();
+  return out;
+}
+async function askClaude(text){
+  const snapshot = history.slice();
+  history.push({role:'user', content:text});
+  history = trimHistory(history);
+  for(let step=0; step<8; step++){
+    const r = await http('POST', 'https://api.anthropic.com/v1/messages', {
+      'x-api-key': cfg.key, 'anthropic-version':'2023-06-01', 'content-type':'application/json'
+    }, JSON.stringify({model:cfg.model, max_tokens:1024, system:systemPrompt(), tools:TOOL_DEFS, messages:history}));
+    let data; try{ data = JSON.parse(r.body); }catch(e){ data = null; }
+    if(r.status !== 200 || !data || !data.content){
+      history = snapshot;
+      const m = (data && data.error && data.error.message) || ('HTTP '+r.status);
+      let msg = 'Sunucuya ulaşamadım: '+m;
+      if(r.status===401) msg = 'API anahtarı geçersiz görünüyor. Ayarlardan kontrol eder misiniz?';
+      if(r.status===429) msg = 'Çok fazla istek gönderildi, biraz sonra tekrar deneyelim.';
+      if(r.status===400 && /credit|balance/i.test(m)) msg = 'API hesabında yeterli kredi yok.';
+      return {text:msg, err:true};
+    }
+    history.push({role:'assistant', content:data.content});
+    const uses = data.content.filter(b => b.type==='tool_use');
+    if(data.stop_reason === 'tool_use' && uses.length){
+      const results = [];
+      for(const u of uses){
+        let out;
+        try{ out = TOOLS[u.name] ? await TOOLS[u.name](u.input||{}) : 'Bilinmeyen araç'; }
+        catch(e){ out = 'Hata: '+e.message; }
+        addMsg('⟡ '+u.name.replace(/_/g,' ')+' → '+String(out).split('\n')[0].slice(0,80), 'sys');
+        results.push({type:'tool_result', tool_use_id:u.id, content:String(out)});
+      }
+      history.push({role:'user', content:results});
+      continue;
+    }
+    store.set('history', history);
+    const t = data.content.filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
+    return {text: t || 'Tamamdır.'};
+  }
+  store.set('history', history);
+  return {text:'İşlem çok uzun sürdü, durduruyorum.', err:true};
+}
+
+/* ---------- basic (offline) mode ---------- */
+const NUMW = {bir:1,iki:2,'üç':3,'dört':4,'beş':5,'altı':6,yedi:7,sekiz:8,dokuz:9,on:10,'onbeş':15,yirmi:20,otuz:30,'kırk':40,elli:50,'altmış':60};
+function num(s){ const m = s.match(/\d+/); if(m) return +m[0]; const ks = Object.keys(NUMW).sort((a,b)=>b.length-a.length); for(const k of ks) if(new RegExp('(^|\\s)'+k+'(\\s|$)').test(s)) return NUMW[k]; return null; }
+async function basic(text){
+  const t = text.toLocaleLowerCase('tr-TR');
+  let m;
+  if(/tars/.test(t) && /geç|ol\b|aç|değiştir|moduna/.test(t)) { TOOLS.set_persona({persona:'tars'}); return 'TARS çevrimiçi. Mizah ayarı yüzde '+cfg.humor+'. Kendimi tutmaya çalışacağım.'; }
+  if(/jarvis/.test(t) && /geç|ol\b|aç|değiştir|moduna/.test(t)) { TOOLS.set_persona({persona:'jarvis'}); return 'JARVIS hizmetinizde, '+cfg.title+'.'; }
+  if((m = t.match(/mizah.*?(\d{1,3})/))) { TOOLS.set_personality({humor:+m[1]}); return 'Mizah ayarı yüzde '+cfg.humor+(isTars()&&cfg.humor>=90?'. Bu bir hata olabilir.':'.'); }
+  if((m = t.match(/dürüstlük.*?(\d{1,3})/))) { TOOLS.set_personality({honesty:+m[1]}); return 'Dürüstlük ayarı yüzde '+cfg.honesty+'.'; }
+  if(/saat kaç|tarih|bugün günlerden/.test(t)) return nowText()+'.';
+  if(/hava/.test(t)){
+    m = t.match(/([a-zçğıöşü]+)(?:'?(?:da|de|ta|te|daki|deki))?\s+hava/);
+    const city = m && !/bugün|yarın|şu an|nasıl/.test(m[1]) ? m[1] : null;
+    let w = await weather(city);
+    if(w.error && city && /(da|de|ta|te)$/.test(city)) w = await weather(city.replace(/(da|de|ta|te)$/,''));
+    return w.error ? w.error : `${w.yer}: ${w.simdi}. Bugün en yüksek ${w.gunler[0].en_yuksek}, en düşük ${w.gunler[0].en_dusuk} derece.`;
+  }
+  if(/fener|flaş/.test(t)) return TOOLS.flashlight({on: !/kapat|söndür/.test(t)});
+  if(/pil|şarj|batarya/.test(t)) return TOOLS.battery_status();
+  if(/alarm/.test(t)){
+    m = t.match(/(\d{1,2})[:. ](\d{2})/) || t.match(/(\d{1,2})/);
+    if(!m) return 'Alarmı kaç saate kurayım?';
+    return TOOLS.set_alarm({hour:+m[1], minute:+(m[2]||0)});
+  }
+  if(/zamanlayıcı|geri sayım/.test(t)){
+    const n = num(t); if(!n) return 'Kaç dakika?';
+    return TOOLS.set_timer({seconds: /saniye/.test(t) ? n : n*60});
+  }
+  if(/(sesi|ses) (aç|yükselt|artır)/.test(t)) return TOOLS.volume({action:'up'});
+  if(/(sesi|ses) (kıs|azalt|düşür)/.test(t)) return TOOLS.volume({action:'down'});
+  if(/sessiz/.test(t)) return TOOLS.volume({action:'mute'});
+  if(/sonraki şarkı|şarkıyı geç/.test(t)) return TOOLS.media({action:'next'});
+  if(/müziği (durdur|başlat)|duraklat/.test(t)) return TOOLS.media({action:'play_pause'});
+  if((m = t.match(/^(.+?)['’]?(?:yı|yi|yu|yü|ı|i|u|ü)? ara$/)) && !/google|internette|youtube/.test(t)) return TOOLS.call_contact({name_or_number:m[1]});
+  if((m = t.match(/^(?:youtube'?da|youtubeda)\s+(.+?)\s*(?:aç|ara)?$/))) return TOOLS.youtube({query:m[1]});
+  if((m = t.match(/(?:google'?da|internette)\s+(.+?)\s*(?:ara|araştır)?$/))) return TOOLS.web_search({query:m[1]});
+  if((m = t.match(/^(.+?)['’]?(?:yı|yi|yu|yü|ı|i|u|ü)? aç$/))) return TOOLS.open_app({name:m[1]});
+  if(/not al|not et|kaydet/.test(t)){ const x = text.replace(/.*?(not al|not et|kaydet)\s*:?\s*/i,''); return x ? TOOLS.save_note({text:x}) : 'Ne not alayım?'; }
+  if(/notlar/.test(t)) return TOOLS.list_notes();
+  if(/merhaba|selam|nasılsın/.test(t)) return isTars() ? 'Merhaba. Tüm sistemler çalışıyor. Sohbet modülüm ise API anahtarı bekliyor.' : `Merhaba ${cfg.title}, tüm sistemler çalışıyor.`;
+  if(isTars()) return 'Bunu anlamak için daha fazla beyne ihtiyacım var. Ayarlardan API anahtarını girersen o beyni alırım. Şimdilik saat, hava, fener, alarm, arama ve uygulama açabilirim.';
+  return 'Temel moddayım; bunu anlamam için ayarlardan Claude API anahtarını girmeniz gerekiyor. Saat, hava, fener, alarm, uygulama açma ve arama gibi komutları şimdi de yapabilirim.';
+}
+
+/* ---------- main input ---------- */
+async function handle(text){
+  text = (text||'').trim();
+  if(!text || busy) return;
+  busy = true;
+  addMsg(text, 'user');
+  $('partial').textContent = '';
+  setState('thinking');
+  try{
+    const r = cfg.key ? await askClaude(text) : {text: await basic(text)};
+    setState('idle');
+    say(r.text, {err:r.err});
+  }catch(e){
+    setState('idle');
+    say('Bir hata oluştu: '+e.message, {err:true});
+  }
+  busy = false;
+}
+
+/* ---------- speech callbacks from native ---------- */
+window.onListenState = s => { listening = s==='listening'; setState(s==='listening'?'listening':'thinking', s==='processing'?'Anlıyorum':undefined); };
+window.onPartial = t => { $('partial').textContent = t; };
+window.onSpeech = t => { document.body.style.setProperty('--lvl', 1); listening = false; setState('idle'); if(t) handle(t); else $('partial').textContent=''; };
+window.onRms = v => { const k = Math.max(0, Math.min(10, v)); $('coreFill').setAttribute('r', 20 + k*2.4); document.body.style.setProperty('--lvl', (0.45 + k*0.07).toFixed(2)); };
+window.onListenError = code => {
+  listening = false; setState('idle'); $('coreFill').setAttribute('r', 20); document.body.style.setProperty('--lvl', 1);
+  const map = {'mic':'Mikrofon izni gerekiyor.', 'unavailable':'Bu telefonda ses tanıma servisi yok. Google uygulamasını yükleyip güncelleyin.', '7':'', '6':'', '8':'Ses tanıma meşgul, tekrar deneyin.', '9':'Mikrofon izni gerekiyor.', '2':'Ses tanıma için internet gerekiyor.', '1':'Ses tanıma için internet gerekiyor.', '13':'Türkçe ses paketi eksik.', '12':'Türkçe ses tanıma desteklenmiyor.'};
+  const m = map[String(code)];
+  if(m) addMsg(m, 'sys'); else $('partial').textContent = '';
+};
+window.onSpeakState = on => {
+  if(on){ setState('speaking'); return; }
+  setState('idle');
+  if(cfg.auto==='1' && !busy) setTimeout(()=>{ if(!busy && !listening) listen(); }, 350);
+};
+window.onBack = () => { if($('settings').classList.contains('open')){ closeSettings(); return true; } return false; };
+
+function listen(){
+  if(listening){ A && A.stopListening(); return; }
+  if(!A){ addMsg('Ses tanıma sadece uygulamada çalışır.', 'sys'); return; }
+  vib(25);
+  $('partial').textContent = '';
+  A.stopSpeaking();
+  A.listen();
+}
+
+/* ---------- settings ---------- */
+function openSettings(){
+  $('sKey').value = cfg.key; $('sModel').value = cfg.model; $('sTitle').value = cfg.title;
+  $('sCity').value = cfg.city; $('sRate').value = cfg.rate; $('sAuto').value = cfg.auto;
+  $('sPersona').value = cfg.persona; $('sHumor').value = cfg.humor; $('sHonesty').value = cfg.honesty; showRng();
+  $('settings').classList.add('open');
+}
+function showRng(){ $('sHumorV').textContent = $('sHumor').value+'%'; $('sHonestyV').textContent = $('sHonesty').value+'%'; }
+$('sHumor').oninput = showRng; $('sHonesty').oninput = showRng;
+function closeSettings(){ $('settings').classList.remove('open'); }
+$('gear').onclick = openSettings;
+$('sCancel').onclick = closeSettings;
+$('sSave').onclick = () => {
+  const before = cfg.persona;
+  Object.assign(cfg, { key:$('sKey').value.trim(), model:$('sModel').value, title:$('sTitle').value.trim()||'efendim',
+          city:$('sCity').value.trim()||'İstanbul', rate:$('sRate').value, auto:$('sAuto').value,
+          persona:$('sPersona').value, humor:+$('sHumor').value, honesty:+$('sHonesty').value });
+  saveCfg(); closeSettings();
+  addMsg(cfg.key ? 'Yapay zekâ modu etkin.' : 'Temel mod etkin.', 'sys');
+  if(before !== cfg.persona) say(isTars() ? 'TARS çevrimiçi. Mizah ayarı yüzde '+cfg.humor+'.' : 'JARVIS hizmetinizde, '+cfg.title+'.');
+};
+$('sClear').onclick = () => { history = []; store.set('history', []); log.innerHTML=''; addMsg('Sohbet geçmişi silindi.', 'sys'); closeSettings(); };
+$('sPerm').onclick = () => { A && A.requestPerms(); };
+
+/* ---------- wiring ---------- */
+$('reactor').onclick = listen;
+$('mic').onclick = listen;
+$('send').onclick = () => { const v = $('inp').value; $('inp').value=''; handle(v); };
+$('inp').addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); $('send').onclick(); $('inp').blur(); } });
+
+/* ---------- boot ---------- */
+tick(); setInterval(tick, 1000);
+battery(); setInterval(battery, 60000);
+applyPersona();
+updateMode();
+weather(null).catch(()=>{});
+setInterval(()=>weather(null).catch(()=>{}), 30*60000);
+
+const h = new Date().getHours();
+const greet = h<6 ? 'İyi geceler' : h<12 ? 'Günaydın' : h<18 ? 'İyi günler' : 'İyi akşamlar';
+const first = !store.get('booted', false);
+addMsg('Sistemler çevrimiçi · '+nowText(), 'sys');
+const hello = isTars()
+  ? (first ? 'TARS çevrimiçi. Mizah ayarı yüzde '+cfg.humor+', dürüstlük yüzde '+cfg.honesty+'. Konuşmak için ekrana dokun.' : 'TARS çevrimiçi. Görev bekleniyor.')
+  : (first ? `${greet} ${cfg.title}. Ben JARVIS. Konuşmak için çekirdeğe dokunun. Ayarlardan kişiliğimi TARS olarak da değiştirebilirsiniz.` : `${greet} ${cfg.title}. Sistemler hazır.`);
+store.set('booted', true);
+setTimeout(()=>say(hello), 400);
+})();
+</script>
+</body>
+</html>

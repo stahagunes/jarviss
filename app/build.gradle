@@ -1,0 +1,40 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.jarvis.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.jarvis.app'
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    signingConfigs {
+        jarvis {
+            storeFile file('jarvis.keystore')
+            storePassword 'jarvis123'
+            keyAlias 'jarvis'
+            keyPassword 'jarvis123'
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.jarvis
+        }
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.jarvis
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
