@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="jarvis_bg">#02070D</color>
-    <color name="jarvis_cyan">#29E3FF</color>
+    <color name="jarvis_bg">#0A0A0A</color>
+    <color name="jarvis_cyan">#FFC107</color>
     <style name="JarvisTheme" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/jarvis_bg</item>
         <item name="android:statusBarColor">@color/jarvis_bg</item>

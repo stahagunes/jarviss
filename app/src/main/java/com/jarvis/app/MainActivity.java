@@ -3,9 +3,11 @@ package com.jarvis.app;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlarmManager;
+import android.app.KeyguardManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -26,9 +28,12 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.os.SystemClock;
 import android.provider.AlarmClock;
+import android.provider.CalendarContract;
 import android.provider.ContactsContract;
+import android.provider.MediaStore;
 import android.provider.Settings;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
@@ -36,6 +41,7 @@ import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import android.speech.tts.Voice;
+import android.telephony.SmsManager;
 import android.util.Base64;
 import android.view.KeyEvent;
 import android.view.WindowManager;
@@ -83,17 +89,19 @@ public class MainActivity extends Activity {
     private final Handler main = new Handler(Looper.getMainLooper());
     private boolean torchOn = false;
     private long lastRms = 0;
+    static volatile boolean visible = false;
+    private boolean wakePending = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        getWindow().setStatusBarColor(Color.parseColor("#02070D"));
+        getWindow().setStatusBarColor(Color.parseColor("#0A0A0A"));
 
         createChannel();
 
         web = new WebView(this);
-        web.setBackgroundColor(Color.parseColor("#02070D"));
+        web.setBackgroundColor(Color.parseColor("#0A0A0A"));
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
@@ -126,15 +134,57 @@ public class MainActivity extends Activity {
         });
 
         requestStartupPermissions();
+        handleWake(getIntent());
+        if (WakeService.enabled(this) && WakeService.instance == null) {
+            try { WakeService.setEnabled(this, true); } catch (Exception ignored) { }
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleWake(intent);
+    }
+
+    private void handleWake(Intent intent) {
+        if (intent == null || !intent.getBooleanExtra("wake", false)) return;
+        intent.removeExtra("wake");
+        if (Build.VERSION.SDK_INT >= 27) {
+            setShowWhenLocked(true);
+            setTurnScreenOn(true);
+        } else {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
+        }
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        if (nm != null) nm.cancel(2);
+        wakePending = true;
+        js("window.onWake && onWake()");
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        visible = true;
+        WakeService.appVisible(true);
+        js("window.onAppResume && onAppResume()");
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        visible = false;
+        WakeService.appVisible(false);
+        if (Build.VERSION.SDK_INT >= 27) { setShowWhenLocked(false); setTurnScreenOn(false); }
     }
 
     private void requestStartupPermissions() {
         List<String> need = new ArrayList<>();
         String[] wanted = Build.VERSION.SDK_INT >= 33
                 ? new String[]{Manifest.permission.RECORD_AUDIO, Manifest.permission.ACCESS_COARSE_LOCATION,
-                Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE, Manifest.permission.POST_NOTIFICATIONS}
+                Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE, Manifest.permission.SEND_SMS, Manifest.permission.POST_NOTIFICATIONS}
                 : new String[]{Manifest.permission.RECORD_AUDIO, Manifest.permission.ACCESS_COARSE_LOCATION,
-                Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE};
+                Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE, Manifest.permission.SEND_SMS};
         for (String p : wanted) {
             if (checkSelfPermission(p) != PackageManager.PERMISSION_GRANTED) need.add(p);
         }
@@ -293,6 +343,30 @@ public class MainActivity extends Activity {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    /** Returns {number, displayName} or {null, errorMessage}. */
+    private String[] resolve(String nameOrNumber) {
+        String digits = nameOrNumber.replaceAll("[^0-9+]", "");
+        if (digits.length() >= 3) return new String[]{digits, digits};
+        String n = findContactNumber(nameOrNumber);
+        if (n != null) return new String[]{n, nameOrNumber};
+        if (!has(Manifest.permission.READ_CONTACTS)) {
+            main.post(() -> requestPermissions(new String[]{Manifest.permission.READ_CONTACTS}, 3));
+            return new String[]{null, "Rehbere erişim izni gerekiyor"};
+        }
+        return new String[]{null, "Rehberde \"" + nameOrNumber + "\" bulunamadı"};
+    }
+
+    private boolean listenerEnabled() {
+        String flat = Settings.Secure.getString(getContentResolver(), "enabled_notification_listeners");
+        return flat != null && flat.contains(getPackageName());
+    }
+
+    private boolean accessibilityEnabled() {
+        if (ZeusAccessibility.on()) return true;
+        String flat = Settings.Secure.getString(getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+        return flat != null && flat.contains(getPackageName());
     }
 
     private String findContactNumber(String name) {
@@ -559,28 +633,55 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public String call(String nameOrNumber) {
-            String digits = nameOrNumber.replaceAll("[^0-9+]", "");
-            String number;
-            String who;
-            if (digits.length() >= 3) {
-                number = digits;
-                who = digits;
-            } else {
-                number = findContactNumber(nameOrNumber);
-                who = nameOrNumber;
-                if (number == null) {
-                    if (!has(Manifest.permission.READ_CONTACTS)) {
-                        main.post(() -> requestPermissions(new String[]{Manifest.permission.READ_CONTACTS}, 3));
-                        return "Rehbere erişim izni gerekiyor";
-                    }
-                    return "Rehberde \"" + nameOrNumber + "\" bulunamadı";
-                }
-            }
-            Uri uri = Uri.parse("tel:" + Uri.encode(number));
+            String[] who = resolve(nameOrNumber);
+            if (who[0] == null) return who[1];
+            Uri uri = Uri.parse("tel:" + Uri.encode(who[0]));
             if (has(Manifest.permission.CALL_PHONE) && launch(new Intent(Intent.ACTION_CALL, uri))) {
-                return who + " aranıyor";
+                return who[1] + " aranıyor";
             }
-            return launch(new Intent(Intent.ACTION_DIAL, uri)) ? who + " için arama ekranı açıldı" : "Arama yapılamadı";
+            return launch(new Intent(Intent.ACTION_DIAL, uri)) ? who[1] + " için arama ekranı açıldı" : "Arama yapılamadı";
+        }
+
+        @JavascriptInterface
+        public String sms(String to, String text) {
+            String[] who = resolve(to);
+            if (who[0] == null) return who[1];
+            if (!has(Manifest.permission.SEND_SMS)) {
+                main.post(() -> requestPermissions(new String[]{Manifest.permission.SEND_SMS}, 4));
+                return "SMS izni gerekiyor, izin isteği açıldı";
+            }
+            try {
+                SmsManager sm = Build.VERSION.SDK_INT >= 31 ? getSystemService(SmsManager.class) : SmsManager.getDefault();
+                ArrayList<String> parts = sm.divideMessage(text);
+                sm.sendMultipartTextMessage(who[0], null, parts, null, null);
+                return who[1] + " kişisine SMS gönderildi";
+            } catch (Exception e) {
+                return "SMS gönderilemedi: " + e.getMessage();
+            }
+        }
+
+        @JavascriptInterface
+        public String whatsapp(String to, String text, boolean send) {
+            String[] who = resolve(to);
+            if (who[0] == null) return who[1];
+            String num = who[0].replaceAll("[^0-9+]", "");
+            if (num.startsWith("+")) num = num.substring(1);
+            else if (num.startsWith("00")) num = num.substring(2);
+            else if (num.startsWith("0")) num = "90" + num.substring(1);
+            else if (num.length() == 10 && num.startsWith("5")) num = "90" + num;
+            String pkg = null;
+            for (String p : new String[]{"com.whatsapp", "com.whatsapp.w4b"}) {
+                if (getPackageManager().getLaunchIntentForPackage(p) != null) { pkg = p; break; }
+            }
+            if (pkg == null) return "WhatsApp yüklü değil";
+            Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse("https://api.whatsapp.com/send?phone=" + num + "&text=" + Uri.encode(text)));
+            i.setPackage(pkg);
+            if (!launch(i)) return "WhatsApp açılamadı";
+            if (send && ZeusAccessibility.on()) {
+                ZeusAccessibility.instance.clickWhenAppears(pkg + ":id/send", new String[]{"Gönder", "Send"}, 12);
+                return who[1] + " kişisine WhatsApp mesajı gönderiliyor";
+            }
+            return who[1] + " ile WhatsApp sohbeti mesaj yazılı halde açıldı" + (send ? " (otomatik göndermek için Telefon kontrolü iznini aç)" : "");
         }
 
         @JavascriptInterface
@@ -643,6 +744,14 @@ public class MainActivity extends Activity {
                 case "location": action = Settings.ACTION_LOCATION_SOURCE_SETTINGS; break;
                 case "battery": action = Intent.ACTION_POWER_USAGE_SUMMARY; break;
                 case "tts": action = "com.android.settings.TTS_SETTINGS"; break;
+                case "wifi_panel": action = Build.VERSION.SDK_INT >= 29 ? Settings.Panel.ACTION_WIFI : Settings.ACTION_WIFI_SETTINGS; break;
+                case "internet_panel": action = Build.VERSION.SDK_INT >= 29 ? Settings.Panel.ACTION_INTERNET_CONNECTIVITY : Settings.ACTION_WIRELESS_SETTINGS; break;
+                case "data": action = Settings.ACTION_DATA_ROAMING_SETTINGS; break;
+                case "airplane": action = Settings.ACTION_AIRPLANE_MODE_SETTINGS; break;
+                case "nfc": action = Settings.ACTION_NFC_SETTINGS; break;
+                case "storage": action = Settings.ACTION_INTERNAL_STORAGE_SETTINGS; break;
+                case "apps": action = Settings.ACTION_APPLICATION_SETTINGS; break;
+                case "hotspot": action = "android.settings.TETHER_SETTINGS"; break;
                 case "app": {
                     Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()));
                     return launch(i) ? "Uygulama ayarları açıldı" : "Ayarlar açılamadı";
@@ -706,6 +815,171 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void requestPerms() { main.post(MainActivity.this::requestStartupPermissions); }
+
+        // ---------- setup / permissions ----------
+
+        @JavascriptInterface
+        public String permStatus() {
+            try {
+                JSONObject o = new JSONObject();
+                o.put("mic", has(Manifest.permission.RECORD_AUDIO));
+                o.put("basic", has(Manifest.permission.RECORD_AUDIO) && has(Manifest.permission.READ_CONTACTS)
+                        && has(Manifest.permission.CALL_PHONE) && has(Manifest.permission.SEND_SMS)
+                        && has(Manifest.permission.ACCESS_COARSE_LOCATION)
+                        && (Build.VERSION.SDK_INT < 33 || has(Manifest.permission.POST_NOTIFICATIONS)));
+                o.put("accessibility", accessibilityEnabled());
+                o.put("accessibilityLive", ZeusAccessibility.on());
+                o.put("notifListener", listenerEnabled());
+                o.put("overlay", Settings.canDrawOverlays(MainActivity.this));
+                o.put("writeSettings", Settings.System.canWrite(MainActivity.this));
+                NotificationManager nm = getSystemService(NotificationManager.class);
+                o.put("dnd", nm != null && nm.isNotificationPolicyAccessGranted());
+                PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+                o.put("battery", pm != null && pm.isIgnoringBatteryOptimizations(getPackageName()));
+                return o.toString();
+            } catch (Exception e) {
+                return "{}";
+            }
+        }
+
+        @JavascriptInterface
+        public void openPerm(String name) {
+            Uri pkg = Uri.parse("package:" + getPackageName());
+            switch (name) {
+                case "basic": main.post(MainActivity.this::requestStartupPermissions); return;
+                case "accessibility": launch(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)); return;
+                case "notifListener": launch(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")); return;
+                case "overlay": launch(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, pkg)); return;
+                case "writeSettings": launch(new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, pkg)); return;
+                case "dnd": launch(new Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)); return;
+                case "battery": launch(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, pkg)); return;
+                default: launch(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkg));
+            }
+        }
+
+        @JavascriptInterface
+        public boolean consumeWake() {
+            boolean w = wakePending;
+            wakePending = false;
+            return w;
+        }
+
+        // ---------- wake word ----------
+
+        @JavascriptInterface
+        public void wakeEnable(boolean on) {
+            main.post(() -> {
+                try { WakeService.setEnabled(MainActivity.this, on); }
+                catch (Exception e) { js("onWakeError(" + q(e.getMessage()) + ")"); }
+            });
+        }
+
+        @JavascriptInterface
+        public String wakeState() {
+            return "{\"enabled\":" + WakeService.enabled(MainActivity.this) + ",\"state\":" + q(WakeService.state)
+                    + ",\"progress\":" + WakeService.progress + ",\"error\":" + q(WakeService.error) + "}";
+        }
+
+        // ---------- screen control (accessibility) ----------
+
+        private String needAcc() {
+            return "Telefon kontrolü kapalı. Ayarlar > Telefon kontrolü bölümünden Erişilebilirlik iznini açmalısın.";
+        }
+
+        @JavascriptInterface
+        public String screenRead() { return ZeusAccessibility.on() ? ZeusAccessibility.instance.read() : needAcc(); }
+
+        @JavascriptInterface
+        public String screenClick(String target, boolean longPress) {
+            return ZeusAccessibility.on() ? ZeusAccessibility.instance.click(target, longPress) : needAcc();
+        }
+
+        @JavascriptInterface
+        public String screenType(String text, String target) {
+            return ZeusAccessibility.on() ? ZeusAccessibility.instance.type(text, target) : needAcc();
+        }
+
+        @JavascriptInterface
+        public String screenScroll(String dir) { return ZeusAccessibility.on() ? ZeusAccessibility.instance.scroll(dir) : needAcc(); }
+
+        @JavascriptInterface
+        public String phoneAction(String name) {
+            if (!ZeusAccessibility.on()) return needAcc();
+            return ZeusAccessibility.instance.global(name);
+        }
+
+        // ---------- system controls ----------
+
+        @JavascriptInterface
+        public String notifications(int limit) {
+            if (!listenerEnabled()) return "Bildirim okuma izni kapalı. Ayarlar > Telefon kontrolü bölümünden açmalısın.";
+            return NotifListener.dump(Math.max(1, Math.min(30, limit)));
+        }
+
+        @JavascriptInterface
+        public String brightness(int percent, boolean auto) {
+            if (!Settings.System.canWrite(MainActivity.this)) {
+                launch(new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:" + getPackageName())));
+                return "Parlaklık için \"Sistem ayarlarını değiştirme\" izni gerekiyor, izin ekranını açtım";
+            }
+            ContentResolver cr = getContentResolver();
+            if (auto) {
+                Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC);
+                return "Otomatik parlaklık açıldı";
+            }
+            int p = Math.max(1, Math.min(100, percent));
+            Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL);
+            Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS, Math.round(p * 255f / 100f));
+            return "Parlaklık %" + p;
+        }
+
+        @JavascriptInterface
+        public String dnd(boolean on) {
+            NotificationManager nm = getSystemService(NotificationManager.class);
+            if (nm == null) return "Desteklenmiyor";
+            if (!nm.isNotificationPolicyAccessGranted()) {
+                launch(new Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS));
+                return "Rahatsız etmeyin için izin gerekiyor, izin ekranını açtım";
+            }
+            nm.setInterruptionFilter(on ? NotificationManager.INTERRUPTION_FILTER_PRIORITY : NotificationManager.INTERRUPTION_FILTER_ALL);
+            return on ? "Rahatsız etmeyin açıldı" : "Rahatsız etmeyin kapatıldı";
+        }
+
+        @JavascriptInterface
+        public String ringer(String mode) {
+            AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            try {
+                switch (mode) {
+                    case "silent": am.setRingerMode(AudioManager.RINGER_MODE_SILENT); return "Telefon sessize alındı";
+                    case "vibrate": am.setRingerMode(AudioManager.RINGER_MODE_VIBRATE); return "Titreşim moduna alındı";
+                    default: am.setRingerMode(AudioManager.RINGER_MODE_NORMAL); return "Zil sesi açıldı";
+                }
+            } catch (SecurityException e) {
+                launch(new Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS));
+                return "Bunun için Rahatsız etmeyin erişim izni gerekiyor, izin ekranını açtım";
+            }
+        }
+
+        @JavascriptInterface
+        public String camera(boolean selfie, boolean video) {
+            Intent i = new Intent(video ? MediaStore.INTENT_ACTION_VIDEO_CAMERA : MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA);
+            if (selfie) {
+                i.putExtra("android.intent.extras.CAMERA_FACING", 1);
+                i.putExtra("android.intent.extras.LENS_FACING_FRONT", 1);
+                i.putExtra("android.intent.extra.USE_FRONT_CAMERA", true);
+            }
+            return launch(i) ? "Kamera açıldı" : "Kamera açılamadı";
+        }
+
+        @JavascriptInterface
+        public String createEvent(String title, double startMillis, double endMillis, String location) {
+            Intent i = new Intent(Intent.ACTION_INSERT).setData(CalendarContract.Events.CONTENT_URI)
+                    .putExtra(CalendarContract.Events.TITLE, title)
+                    .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, (long) startMillis)
+                    .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, (long) endMillis);
+            if (location != null && !location.isEmpty()) i.putExtra(CalendarContract.Events.EVENT_LOCATION, location);
+            return launch(i) ? "Takvim etkinliği ekranı açıldı, kaydet'e dokunman yeterli" : "Takvim açılamadı";
+        }
     }
 
     @Override
