@@ -35,6 +35,45 @@ jobs:
           curl -fL --retry 3 -o app/src/main/assets/fonts/Inter.ttf "https://github.com/google/fonts/raw/main/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf" || echo "inter font download failed"
           ls -la app/src/main/assets/fonts
 
+      - name: Bundle offline voice engine and voices
+        run: |
+          set -e
+          SO=v1.13.8
+          mkdir -p app/libs
+          curl -fL --retry 3 -o app/libs/sherpa-onnx.aar https://github.com/k2-fsa/sherpa-onnx/releases/download/$SO/sherpa-onnx-1.13.8.aar
+          # strip ABIs we don't ship (x86) to keep the APK lean
+          mkdir -p /tmp/aar && cd /tmp/aar && unzip -q $GITHUB_WORKSPACE/app/libs/sherpa-onnx.aar && rm -rf jni/x86 jni/x86_64 && rm $GITHUB_WORKSPACE/app/libs/sherpa-onnx.aar && zip -qr $GITHUB_WORKSPACE/app/libs/sherpa-onnx.aar . && cd $GITHUB_WORKSPACE
+          get_voice () {
+            name=$1; file=$2
+            curl -fL --retry 3 -o /tmp/$name.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/$file
+            rm -rf /tmp/$name && mkdir /tmp/$name && tar -xjf /tmp/$name.tar.bz2 -C /tmp/$name
+            src=$(ls -d /tmp/$name/*/)
+            mkdir -p app/src/main/assets/piper-$name
+            cp "$(ls $src*.onnx | head -1)" app/src/main/assets/piper-$name/model.onnx
+            cp $src/tokens.txt app/src/main/assets/piper-$name/tokens.txt
+            if [ ! -d app/src/main/assets/espeak-ng-data ]; then cp -r $src/espeak-ng-data app/src/main/assets/espeak-ng-data; fi
+          }
+          get_voice fahrettin vits-piper-tr_TR-fahrettin-medium.tar.bz2
+          get_voice fettah vits-piper-tr_TR-fettah-medium-int8.tar.bz2
+          du -sh app/src/main/assets/* app/libs/*
+
+      - name: Publish offline speech-recognition model (once)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view models --json assets -q '.assets[].name' 2>/dev/null | grep -q whisper-base-tr.zip; then
+            echo "model already published"; exit 0
+          fi
+          curl -fL --retry 3 -o /tmp/w.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-base.tar.bz2
+          mkdir -p /tmp/w /tmp/wz && tar -xjf /tmp/w.tar.bz2 -C /tmp/w
+          d=$(ls -d /tmp/w/*/)
+          cp $d/base-encoder.int8.onnx /tmp/wz/encoder.onnx
+          cp $d/base-decoder.int8.onnx /tmp/wz/decoder.onnx
+          cp $d/base-tokens.txt /tmp/wz/tokens.txt
+          (cd /tmp/wz && zip -q -0 /tmp/whisper-base-tr.zip encoder.onnx decoder.onnx tokens.txt)
+          gh release view models >/dev/null 2>&1 || gh release create models --title "ZEUS modelleri" --notes "İnternetsiz dinleme modeli (Whisper base, int8)." --latest=false
+          gh release upload models /tmp/whisper-base-tr.zip --clobber
+
       - name: Build APK
         run: gradle assembleRelease --no-daemon --stacktrace
 

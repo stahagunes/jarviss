@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="acc_desc">ZEUS\'un ekranı okuyup senin yerine dokunması, yazması, kaydırması ve geri/ana ekran gibi işlemleri yapabilmesi için gerekir. Sadece sen bir komut verdiğinde kullanılır.</string>
+    <string name="widget_desc">ZEUS\'a tek dokunuşla sor</string>
 </resources>

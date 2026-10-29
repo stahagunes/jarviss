@@ -6,3 +6,6 @@ local.properties
 .idea/
 app/src/main/assets/vosk-tr/
 app/src/main/assets/fonts/
+app/libs/
+app/src/main/assets/piper-*/
+app/src/main/assets/espeak-ng-data/

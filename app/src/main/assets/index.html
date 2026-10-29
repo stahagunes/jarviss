@@ -231,7 +231,36 @@ svg{display:block}
           <label class="sw"><input type="checkbox" id="sAuto"><i></i></label>
         </div>
       </div>
-      <div class="hint" style="margin:8px 4px 0">İlk açılışta ~35 MB Türkçe ses modeli indirilir, sonra internetsiz çalışır. Ekran kapalıyken de açılabilmesi için yukarıdan <b>Üstte gösterme</b> ve <b>Arka planda çalışma</b> izinlerini aç.</div>
+      <div class="hint" style="margin:8px 4px 0">Uyandırma modeli uygulamanın içinde gelir ve internetsiz çalışır. Ekran kapalıyken de açılabilmesi için yukarıdan <b>Üstte gösterme</b> ve <b>Arka planda çalışma</b> izinlerini aç.</div>
+    </div>
+
+    <div class="sec">
+      <h3>Kısayollar</h3>
+      <div class="card">
+        <div class="row"><div class="t"><b>Varsayılan asistan</b><span id="asstState">Güç ya da ana ekran tuşuna uzun basınca ZEUS açılır</span></div><button class="pb" id="sAssist">Ayarla</button></div>
+        <div class="row"><div class="t"><b>Ana ekran widget'ı</b><span>"ZEUS'a sor" çubuğu ve tek dokunuşla brifing</span></div><button class="pb" id="sWidget">Ekle</button></div>
+        <div class="row"><div class="t"><b>Hızlı ayarlar kutucuğu</b><span>Bildirim panelinden tek dokunuşla konuş</span></div><button class="pb" id="sTile">Ekle</button></div>
+        <div class="row">
+          <div class="t"><b>Sabah brifingi</b><span>Her gün seçtiğin saatte günün özetini okur</span></div>
+          <label class="sw"><input type="checkbox" id="sBrief"><i></i></label>
+        </div>
+        <div class="field" id="briefTimeRow"><label for="sBriefTime">Brifing saati</label><input type="text" id="sBriefTime" placeholder="08:00" inputmode="numeric"></div>
+      </div>
+      <div class="hint" id="shortHint" style="margin:8px 4px 0">Varsayılan asistan listesinde ZEUS'u seç. Telefonun izin verirse güç tuşuna uzun basınca da açılır.</div>
+    </div>
+
+    <div class="sec">
+      <h3>İnternetsiz dinleme</h3>
+      <div class="card">
+        <div class="row"><div class="t"><b>Whisper Türkçe modeli</b><span id="asrState">Yüklü değil · 160 MB</span></div><button class="pb" id="sAsrBtn">İndir</button></div>
+        <div class="field"><label for="sAsrMode">Ne zaman kullanılsın?</label>
+          <select id="sAsrMode">
+            <option value="auto">Otomatik · internet yoksa ya da Google dinleyemezse</option>
+            <option value="always">Her zaman internetsiz</option>
+            <option value="off">Kapalı</option>
+          </select></div>
+      </div>
+      <div class="hint" style="margin:8px 4px 0">İnternet olmadan da seni anlar. Google kadar hızlı değildir; her cümleyi bitirdikten 1–3 saniye sonra yazıya döker.</div>
     </div>
 
     <div class="sec">
@@ -281,6 +310,7 @@ svg{display:block}
       <div class="card">
         <div class="field"><label for="sEngine">Ses motoru</label>
           <select id="sEngine">
+            <option value="olympus">ZEUS sesi · internetsiz, sınırsız, ücretsiz</option>
             <option value="gcloud">Google Cloud · ayda 1M karakter ücretsiz, çok gerçekçi</option>
             <option value="gemini">Google Gemini · ücretsiz kota düşük</option>
             <option value="azure">Microsoft Azure · ücretsiz kota</option>
@@ -288,6 +318,19 @@ svg{display:block}
             <option value="eleven">ElevenLabs</option>
             <option value="openai">OpenAI</option>
           </select></div>
+
+        <div id="grpOlympus">
+          <div class="field"><label for="sOlVoice">Ses</label>
+            <select id="sOlVoice">
+              <option value="fahrettin">Fahrettin · derin, ağır erkek sesi</option>
+              <option value="fettah">Fettah · net, genç erkek sesi</option>
+            </select>
+            <div class="hint">Uygulamanın içinde gömülü yapay zekâ sesi. İnternet, anahtar ve kota gerekmez.</div></div>
+          <div class="field"><label for="sOlDepth">Derinlik</label><div class="rng"><input id="sOlDepth" type="range" min="0.78" max="1" step="0.02"><output id="sOlDepthV"></output></div>
+            <div class="hint">Sola çektikçe ses kalınlaşır, Zeus'a yakışır.</div></div>
+          <div class="field"><label for="sOlEcho">Tanrısal yankı</label>
+            <select id="sOlEcho"><option value="0">Kapalı</option><option value="0.18">Hafif</option><option value="0.32">Olimpos salonu</option><option value="0.48">Gök kubbe</option></select></div>
+        </div>
 
         <div id="grpGcloud">
           <div class="field"><label for="sGcKey">Google Cloud API anahtarı</label><input type="password" id="sGcKey" placeholder="AIza..." autocomplete="off">
@@ -393,7 +436,7 @@ svg{display:block}
       <div class="card">
         <div class="btnrow"><button class="pb red" id="sClear">Sohbeti sil</button><button class="pb red" id="sNotes">Notları sil</button></div>
       </div>
-      <div class="hint" style="margin:10px 4px 0;text-align:center">ZEUS 3.0 · Ayarlar otomatik kaydedilir</div>
+      <div class="hint" style="margin:10px 4px 0;text-align:center">ZEUS 4.0 · Ayarlar otomatik kaydedilir</div>
     </div>
 
   </div>
@@ -415,13 +458,18 @@ let cfg = Object.assign({
   key:'', model:'claude-haiku-5-5', provider:'anthropic', baseUrl:'https://api.llmsrelay.com', customModel:'', title:'efendim', city:'İstanbul', rate:'1', auto:'0',
   persona:'jarvis', humor:60, honesty:90, fx:'1',
   engine:'device', voice:'', pitch:'1',
-  gcKey:'', gcVoice:'tr-TR-Chirp3-HD-Charon', gmKey:'', gmVoice:'Charon', gmModel:'gemini-3.1-flash-tts-preview',
+  olVoice:'fahrettin', olDepth:'0.88', olEcho:'0.18', asrMode:'auto', gcKey:'', gcVoice:'tr-TR-Chirp3-HD-Charon', gmKey:'', gmVoice:'Charon', gmModel:'gemini-3.1-flash-tts-preview',
   azKey:'', azRegion:'westeurope', azVoice:'tr-TR-AhmetNeural',
   elKey:'', elVoice:'onwK4e9ZLuTAKqWW03F9', oaKey:'', oaVoice:'onyx'
 }, store.get('cfg', {}));
 const isTars = () => cfg.persona === 'tars';
 const pname = () => isTars() ? 'TARS' : 'ZEUS';
 const clamp = v => Math.max(0, Math.min(100, Math.round((+v||0)/5)*5));
+if(!store.get('zeus4', false)){
+  const hasKey = {gcloud:'gcKey', gemini:'gmKey', azure:'azKey', eleven:'elKey', openai:'oaKey'}[cfg.engine];
+  if(cfg.engine === 'device' || (hasKey && !cfg[hasKey])) cfg.engine = 'olympus';
+  store.set('zeus4', true);
+}
 if(!store.get('zeus3', false)){ if(cfg.title === 'efendim') cfg.title = 'kahraman'; if(cfg.engine === 'device'){ cfg.pitch = '0.85'; } store.set('zeus3', true); }
 function saveCfg(){ store.set('cfg', cfg); $('pname').textContent = pname(); }
 
@@ -637,6 +685,10 @@ function speak(text, c){
   const clean = text.replace(/[*#_`>|]/g,'').replace(/\s+/g,' ').trim();
   lastSpoken = clean;
   const tars = c.persona === 'tars';
+  if(A && c.engine === 'olympus' && A.zeusVoiceAvailable && A.zeusVoiceAvailable()){
+    A.zeusSpeak(clean, c.olVoice||'fahrettin', parseFloat(c.rate)||1, parseFloat(c.olDepth)||0.88, parseFloat(c.olEcho)||0);
+    return;
+  }
   if(A && c.engine === 'gcloud' && c.gcKey){
     const v = c.gcVoice || 'tr-TR-Chirp3-HD-Charon';
     A.googleSpeak('https://texttospeech.googleapis.com/v1/text:synthesize',
@@ -645,7 +697,7 @@ function speak(text, c){
         audioConfig:{audioEncoding:'MP3', speakingRate: parseFloat(c.rate)||1}}));
     return;
   }
-  if(A && c.engine !== 'device' && !c[{gcloud:'gcKey',gemini:'gmKey',azure:'azKey',eleven:'elKey',openai:'oaKey'}[c.engine]] && !warnedNoKey){
+  if(A && c.engine !== 'device' && c.engine !== 'olympus' && !c[{gcloud:'gcKey',gemini:'gmKey',azure:'azKey',eleven:'elKey',openai:'oaKey'}[c.engine]] && !warnedNoKey){
     warnedNoKey = true;
     addNote('Seçili ses motorunun API anahtarı girilmemiş, şimdilik telefon sesi kullanılıyor.');
   }
@@ -686,6 +738,7 @@ function speak(text, c){
 window.onCloudTtsError = (status, msg) => {
   let m = '';
   try{ const j = JSON.parse(msg); m = (j.detail && (j.detail.message||j.detail.status)) || (j.error && j.error.message) || ''; }catch(e){ m = String(msg||''); }
+  if(status===-1) m = 'ZEUS sesi çalışmadı ('+String(msg||'').slice(0,60)+')';
   if(status===401 || status===403) m = 'API anahtarı geçersiz';
   if(status===429) m = 'ücretsiz kota doldu';
   if(status===404 && cfg.engine==='gemini') m = 'ses modeli bulunamadı, ayarlardan diğer modeli seç';
@@ -1109,6 +1162,11 @@ window.onSpeech = t => { document.body.style.setProperty('--lvl', 0); listening 
 window.onRms = v => { const k = Math.max(0, Math.min(10, v))/10; document.body.style.setProperty('--lvl', k.toFixed(2)); };
 window.onListenError = code => {
   listening = false; setState('idle'); document.body.style.setProperty('--lvl', 0);
+  if(!triedOffline && cfg.asrMode !== 'off' && ['1','2','5','11','13','12','unavailable'].includes(String(code)) && asrInfo().ready){
+    triedOffline = true; addNote('İnternetsiz dinlemeye geçildi.'); A.listenOffline(); return;
+  }
+  if(String(code) === 'offline-missing'){ addNote('İnternetsiz dinleme modeli yüklü değil. Ayarlar > İnternetsiz dinleme.'); return; }
+  if(String(code).startsWith('offline:')){ addNote('İnternetsiz dinleme hatası: '+String(code).slice(8,90)); return; }
   const map = {'mic':'Mikrofon izni gerekiyor.','unavailable':'Bu telefonda ses tanıma servisi yok; Google uygulamasını güncelle.','8':'Ses tanıma meşgul, tekrar dene.','9':'Mikrofon izni gerekiyor.','2':'Ses tanıma için internet gerekiyor.','1':'Ses tanıma için internet gerekiyor.','13':'Türkçe ses paketi eksik.','12':'Türkçe ses tanıma desteklenmiyor.'};
   const m = map[String(code)];
   if(m) addNote(m); else $('partial').textContent = '';
@@ -1124,17 +1182,29 @@ function wakeUp(){
   try{ A && A.vibrate(70); }catch(e){}
   if(!busy) setTimeout(listen, 1000);
 }
-window.onWake = () => { try{ A && A.consumeWake(); }catch(e){} wakeUp(); };
+window.onLaunch = mode => {
+  try{ A && A.consumeLaunch(); }catch(e){}
+  if(mode === 'wake') return wakeUp();
+  hideSplash(true);
+  if(mode === 'brief'){ Sky.strike(1.1); FX.thunder(0.5, 1.6); setTimeout(() => handle(cfg.key ? 'Bana kısa bir günlük brifing ver: tarih ve saat, hava durumu, son bildirimlerim ve notlarım.' : 'Günün brifingi'), 600); return; }
+  Sky.flicker(); if(!busy) setTimeout(listen, 250);
+};
+window.onWake = () => window.onLaunch('wake');
 window.onAppResume = () => { battery(); refreshWake(); if($('sheet').classList.contains('open')) renderPerms(); };
 window.onWakeError = m => addNote('Uyandırma başlatılamadı: '+m);
 window.onBack = () => { if($('sheet').classList.contains('open')){ closeSheet(); return true; } return false; };
 
+function asrInfo(){ try{ return JSON.parse(A ? A.asrState() : '{}'); }catch(e){ return {}; } }
+let triedOffline = false;
 function listen(){
   if(listening){ A && A.stopListening(); return; }
   if(!A){ addNote('Ses tanıma sadece uygulamada çalışır.'); return; }
   vib(20);
   $('partial').textContent = '';
   A.stopSpeaking();
+  triedOffline = false;
+  if(cfg.asrMode === 'always' && asrInfo().ready){ triedOffline = true; A.listenOffline(); return; }
+  if(cfg.asrMode !== 'off' && asrInfo().ready && navigator.onLine === false){ triedOffline = true; A.listenOffline(); return; }
   A.listen();
 }
 
@@ -1176,7 +1246,9 @@ function fillVoices(){
 }
 function showEngine(){
   const e = $('sEngine').value;
-  ['Gcloud','Gemini','Azure','Device','Eleven','Openai'].forEach(g => $('grp'+g).classList.toggle('hide', e !== g.toLowerCase()));
+  $('sOlDepthV').textContent = Math.round((1-(+$('sOlDepth').value))*100/0.22)+'%';
+  $('briefTimeRow').classList.toggle('hide', !$('sBrief').checked);
+  ['Olympus','Gcloud','Gemini','Azure','Device','Eleven','Openai'].forEach(g => $('grp'+g).classList.toggle('hide', e !== g.toLowerCase()));
   $('sElCustom').classList.toggle('hide', $('sElVoice').value !== 'custom');
   const custom = $('sProvider').value === 'custom';
   $('grpCustom').classList.toggle('hide', !custom);
@@ -1194,7 +1266,7 @@ function formCfg(){
     humor:+$('sHumor').value, honesty:+$('sHonesty').value, auto:$('sAuto').checked ? '1' : '0',
     key:$('sKey').value.trim(), model:$('sModel').value, provider:$('sProvider').value, baseUrl:$('sBase').value.trim()||'https://api.llmsrelay.com', customModel:$('sCustomModel').value.trim(),
     engine:$('sEngine').value, voice:$('sVoice').value, pitch:$('sPitch').value, rate:$('sRate').value,
-    gcKey:$('sGcKey').value.trim(), gcVoice:$('sGcVoice').value, gmKey:$('sGmKey').value.trim(), gmVoice:$('sGmVoice').value, gmModel:$('sGmModel').value,
+    olVoice:$('sOlVoice').value, olDepth:$('sOlDepth').value, olEcho:$('sOlEcho').value, asrMode:$('sAsrMode').value, gcKey:$('sGcKey').value.trim(), gcVoice:$('sGcVoice').value, gmKey:$('sGmKey').value.trim(), gmVoice:$('sGmVoice').value, gmModel:$('sGmModel').value,
     azKey:$('sAzKey').value.trim(), azRegion:$('sAzRegion').value.trim()||'westeurope', azVoice:$('sAzVoice').value,
     elKey:$('sElKey').value.trim(), elVoice: $('sElVoice').value==='custom' ? $('sElCustom').value.trim() : $('sElVoice').value,
     oaKey:$('sOaKey').value.trim(), oaVoice:$('sOaVoice').value
@@ -1208,6 +1280,8 @@ function openSheet(){
   $('sAuto').checked = cfg.auto === '1'; $('sFx').checked = cfg.fx !== '0'; renderMemory();
   set('sKey', cfg.key); set('sModel', cfg.model); set('sProvider', cfg.provider); set('sBase', cfg.baseUrl); set('sCustomModel', cfg.customModel);
   set('sEngine', cfg.engine); fillVoices(); set('sVoice', cfg.voice); set('sPitch', cfg.pitch); set('sRate', cfg.rate);
+  set('sOlVoice', cfg.olVoice); set('sOlDepth', cfg.olDepth); set('sOlEcho', cfg.olEcho); set('sAsrMode', cfg.asrMode);
+  refreshShortcuts(); refreshAsr();
   set('sGcKey', cfg.gcKey);
   if(![...$('sGcVoice').options].some(o => o.value === cfg.gcVoice)){ const o = document.createElement('option'); o.value = o.textContent = cfg.gcVoice; $('sGcVoice').appendChild(o); }
   set('sGcVoice', cfg.gcVoice);
@@ -1224,7 +1298,7 @@ function closeSheet(){ $('sheet').classList.remove('open'); }
 function hideSplash(now){ document.body.classList.remove('splashing'); const sp = $('splash'); if(now){ sp.style.transition = 'none'; } sp.classList.add('gone'); setTimeout(() => sp.remove && sp.remove(), 800); }
 function liveSave(){ if(!sheetReady) return; Object.assign(cfg, formCfg()); saveCfg(); showEngine(); }
 document.querySelectorAll('#sheet input, #sheet select').forEach(el => {
-  if(el.id === 'wakeOn') return;
+  if(el.id === 'wakeOn' || el.id === 'sBrief' || el.id === 'sBriefTime') return;
   el.addEventListener('input', liveSave); el.addEventListener('change', liveSave);
 });
 $('wakeOn').onchange = e => {
@@ -1240,7 +1314,7 @@ $('appInfo').onclick = () => call('openPerm', 'appinfo');
 $('sTtsSet').onclick = () => call('openSettings', 'tts');
 $('sTest').onclick = () => {
   const c = Object.assign({}, cfg, formCfg());
-  const need = {gcloud:'gcKey', gemini:'gmKey', azure:'azKey', eleven:'elKey', openai:'oaKey'}[c.engine];
+  const need = {olympus:null, gcloud:'gcKey', gemini:'gmKey', azure:'azKey', eleven:'elKey', openai:'oaKey'}[c.engine];
   if(need && !c[need]){ addNote('Önce bu ses motorunun API anahtarını gir.'); return; }
   speak(c.persona==='tars' ? 'TARS çevrimiçi. Mizah ayarım yüzde yetmiş beş. Bu ses iş görür.' : 'Merhaba, ben ZEUS. Bu sesle konuşmamı ister misin?', c);
 };
@@ -1296,6 +1370,42 @@ $('sGcList').onclick = async () => {
   $('gcHint').textContent = list.length+' Türkçe ses bulundu. En gerçekçileri Chirp3-HD olanlar.';
   liveSave();
 };
+function refreshShortcuts(){
+  let st = {}; try{ st = JSON.parse(A ? A.shortcutState() : '{}'); }catch(e){}
+  $('asstState').textContent = st.assistant ? '✓ ZEUS varsayılan asistan' : 'Güç ya da ana ekran tuşuna uzun basınca ZEUS açılır';
+  $('sAssist').textContent = st.assistant ? 'Değiştir' : 'Ayarla';
+  $('sBrief').checked = !!st.brief;
+  $('sBriefTime').value = pad(st.briefH!=null ? st.briefH : 8)+':'+pad(st.briefM||0);
+  $('briefTimeRow').classList.toggle('hide', !st.brief);
+}
+function saveBrief(){
+  const m = $('sBriefTime').value.match(/(\d{1,2})[:.](\d{2})/);
+  const h = m ? Math.min(23, +m[1]) : 8, mi = m ? Math.min(59, +m[2]) : 0;
+  call('briefSchedule', $('sBrief').checked, h, mi);
+  $('briefTimeRow').classList.toggle('hide', !$('sBrief').checked);
+  if($('sBrief').checked) $('shortHint').textContent = `Sabah brifingi her gün ${pad(h)}:${pad(mi)}'de. Ekran kilitliyken açılabilmesi için "Üstte gösterme" izni gerekir.`;
+}
+$('sBrief').addEventListener('change', saveBrief);
+$('sBriefTime').addEventListener('change', saveBrief);
+$('sAssist').onclick = () => { call('openAssistantSettings'); $('shortHint').textContent = 'Açılan ekranda "Dijital asistan uygulaması" ya da "Varsayılan asistan" → ZEUS seç.'; };
+$('sWidget').onclick = () => { const r = call('pinWidget'); if(r !== 'ok') $('shortHint').textContent = r; };
+$('sTile').onclick = () => { const r = call('addTile'); if(r !== 'ok') $('shortHint').textContent = r; };
+let asrTimer = null;
+function refreshAsr(){
+  const a = asrInfo();
+  const btn = $('sAsrBtn');
+  if(a.dl === 'downloading'){ $('asrState').textContent = 'İndiriliyor %'+(a.progress||0); btn.textContent = '…'; btn.disabled = true;
+    clearTimeout(asrTimer); asrTimer = setTimeout(refreshAsr, 1000); return; }
+  btn.disabled = false;
+  if(a.ready){ $('asrState').textContent = '✓ Hazır · internetsiz dinleyebilir'; btn.textContent = 'Sil'; btn.className = 'pb red'; }
+  else { $('asrState').textContent = a.dl === 'error' ? 'İndirilemedi: '+String(a.error||'').slice(0,60) : 'Yüklü değil · 160 MB'; btn.textContent = 'İndir'; btn.className = 'pb'; }
+}
+$('sAsrBtn').onclick = () => {
+  const a = asrInfo();
+  if(a.ready){ call('asrDelete'); }
+  else { call('asrDownload'); addNote('İnternetsiz dinleme modeli indiriliyor (160 MB). Wi-Fi önerilir.'); }
+  setTimeout(refreshAsr, 300);
+};
 $('sClear').onclick = () => { history = []; store.set('history', []); log.innerHTML = ''; addNote('Sohbet geçmişi silindi.'); };
 $('sNotes').onclick = () => { store.set('notes', []); addNote('Notlar silindi.'); };
 
@@ -1311,14 +1421,15 @@ document.querySelectorAll('.q').forEach(b => b.onclick = () => {
 
 /* ================= boot ================= */
 saveCfg();
+try{ if(A && cfg.engine === 'olympus' && A.zeusWarm) A.zeusWarm(cfg.olVoice || 'fahrettin'); }catch(e){}
 tick(); setInterval(tick, 15000);
 battery(); setInterval(battery, 60000);
 refreshWake(); setInterval(refreshWake, 3000);
 weather(null).catch(()=>{}); setInterval(()=>weather(null).catch(()=>{}), 30*60000);
 $('status').innerHTML = 'Hazır<small>Dokun ya da "Zeus uyan" de</small>';
 
-let woke = false; try{ woke = !!(A && A.consumeWake()); }catch(e){}
-if(woke){ wakeUp(); }
+let launchMode = ''; try{ launchMode = A && A.consumeLaunch ? A.consumeLaunch() : ''; }catch(e){}
+if(launchMode){ window.onLaunch(launchMode); }
 else {
   const sp = $('splash');
   setTimeout(() => { Sky.strike(1.6, innerWidth/2, innerHeight/2 - 30); FX.thunder(1, 3.4); sp.classList.add('on'); try{ A && A.vibrate(90); }catch(e){} }, 250);

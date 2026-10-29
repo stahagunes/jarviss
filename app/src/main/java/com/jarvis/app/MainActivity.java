@@ -3,6 +3,10 @@ package com.jarvis.app;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlarmManager;
+import android.app.StatusBarManager;
+import android.appwidget.AppWidgetManager;
+import android.content.ComponentName;
+import android.graphics.drawable.Icon;
 import android.app.KeyguardManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -147,9 +151,16 @@ public class MainActivity extends Activity {
         handleWake(intent);
     }
 
+    private String pendingLaunch = "";
+
     private void handleWake(Intent intent) {
-        if (intent == null || !intent.getBooleanExtra("wake", false)) return;
+        if (intent == null) return;
+        String mode = "";
+        if (intent.getBooleanExtra("wake", false)) mode = "wake";
+        else if (intent.getStringExtra("launch") != null) mode = intent.getStringExtra("launch");
+        if (mode.isEmpty()) return;
         intent.removeExtra("wake");
+        intent.removeExtra("launch");
         if (Build.VERSION.SDK_INT >= 27) {
             setShowWhenLocked(true);
             setTurnScreenOn(true);
@@ -157,9 +168,10 @@ public class MainActivity extends Activity {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
         }
         NotificationManager nm = getSystemService(NotificationManager.class);
-        if (nm != null) nm.cancel(2);
-        wakePending = true;
-        js("window.onWake && onWake()");
+        if (nm != null) { nm.cancel(2); nm.cancel(41); }
+        wakePending = "wake".equals(mode);
+        pendingLaunch = mode;
+        js("window.onLaunch && onLaunch(" + q(mode) + ")");
     }
 
     @Override
@@ -254,6 +266,7 @@ public class MainActivity extends Activity {
         main.post(() -> {
             try {
                 stopPlayer();
+                ZeusVoice.stop();
                 if (tts != null) tts.stop();
                 player = new MediaPlayer();
                 player.setAudioAttributes(new AudioAttributes.Builder()
@@ -271,6 +284,7 @@ public class MainActivity extends Activity {
     }
 
     private void speakNow(String text) {
+        ZeusVoice.stop();
         stopPlayer();
         applyVoice();
         tts.setSpeechRate(speechRate);
@@ -285,7 +299,7 @@ public class MainActivity extends Activity {
             js("onListenError('mic')");
             return;
         }
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+        if (ZeusRecognitionService.otherRecognizer(this) == null && !SpeechRecognizer.isRecognitionAvailable(this)) {
             js("onListenError('unavailable')");
             return;
         }
@@ -293,7 +307,8 @@ public class MainActivity extends Activity {
         if (recognizer != null) {
             recognizer.destroy();
         }
-        recognizer = SpeechRecognizer.createSpeechRecognizer(this);
+        ComponentName other = ZeusRecognitionService.otherRecognizer(this);
+        recognizer = other != null ? SpeechRecognizer.createSpeechRecognizer(this, other) : SpeechRecognizer.createSpeechRecognizer(this);
         recognizer.setRecognitionListener(new RecognitionListener() {
             @Override public void onReadyForSpeech(Bundle b) { js("onListenState('listening')"); }
             @Override public void onBeginningOfSpeech() { }
@@ -402,6 +417,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void stopListening() {
+            OfflineAsr.stop();
             main.post(() -> { if (recognizer != null) recognizer.stopListening(); });
         }
 
@@ -414,6 +430,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void stopSpeaking() {
+            ZeusVoice.stop();
             if (tts != null) tts.stop();
             main.post(MainActivity.this::stopPlayer);
         }
@@ -894,6 +911,112 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public String consumeLaunch() {
+            String m = pendingLaunch;
+            pendingLaunch = "";
+            wakePending = false;
+            return m;
+        }
+
+        // ---------- ZEUS offline voice ----------
+
+        @JavascriptInterface
+        public boolean zeusVoiceAvailable() { return ZeusVoice.available(MainActivity.this); }
+
+        @JavascriptInterface
+        public void zeusWarm(String voice) { ZeusVoice.warmUp(MainActivity.this, voice); }
+
+        @JavascriptInterface
+        public void zeusSpeak(String text, String voice, float rate, float depth, float echo) {
+            stopPlayer();
+            if (tts != null) tts.stop();
+            ZeusVoice.speak(MainActivity.this, text, voice, rate, depth, echo, new ZeusVoice.Listener() {
+                @Override public void onStart() { js("onSpeakState(true)"); }
+                @Override public void onDone() { js("onSpeakState(false)"); }
+                @Override public void onError(String m) { js("onCloudTtsError(-1," + q(m) + ")"); }
+            });
+        }
+
+        // ---------- offline listening ----------
+
+        @JavascriptInterface
+        public String asrState() {
+            return "{\"ready\":" + OfflineAsr.ready(MainActivity.this) + ",\"dl\":" + q(OfflineAsr.dlState)
+                    + ",\"progress\":" + OfflineAsr.dlProgress + ",\"error\":" + q(OfflineAsr.dlError) + "}";
+        }
+
+        @JavascriptInterface
+        public void asrDownload() { OfflineAsr.download(MainActivity.this); }
+
+        @JavascriptInterface
+        public void asrDelete() { OfflineAsr.delete(MainActivity.this); }
+
+        @JavascriptInterface
+        public void listenOffline() {
+            if (!has(Manifest.permission.RECORD_AUDIO)) {
+                main.post(() -> requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 2));
+                js("onListenError('mic')");
+                return;
+            }
+            ZeusVoice.stop();
+            if (tts != null) tts.stop();
+            main.post(MainActivity.this::stopPlayer);
+            OfflineAsr.listen(MainActivity.this, new OfflineAsr.Listener() {
+                @Override public void onState(String st) { js("onListenState(" + q(st) + ")"); }
+                @Override public void onRms(float level) { js("onRms(" + level + ")"); }
+                @Override public void onResult(String text) { js("onSpeech(" + q(text) + ")"); }
+                @Override public void onError(String code) { js("onListenError(" + q(code) + ")"); }
+            });
+        }
+
+        // ---------- shortcuts ----------
+
+        @JavascriptInterface
+        public String shortcutState() {
+            String a = Settings.Secure.getString(getContentResolver(), "assistant");
+            String v = Settings.Secure.getString(getContentResolver(), "voice_interaction_service");
+            boolean isAssistant = (a != null && a.contains(getPackageName())) || (v != null && v.contains(getPackageName()));
+            SharedPreferencesHolder.load(MainActivity.this);
+            return "{\"assistant\":" + isAssistant + ",\"brief\":" + SharedPreferencesHolder.brief
+                    + ",\"briefH\":" + SharedPreferencesHolder.h + ",\"briefM\":" + SharedPreferencesHolder.m + "}";
+        }
+
+        @JavascriptInterface
+        public String pinWidget() {
+            AppWidgetManager wm = getSystemService(AppWidgetManager.class);
+            if (wm != null && wm.isRequestPinAppWidgetSupported()) {
+                wm.requestPinAppWidget(new ComponentName(MainActivity.this, ZeusWidget.class), null, null);
+                return "ok";
+            }
+            return "Ana ekranına uzun bas → Widget'lar → ZEUS'u sürükle.";
+        }
+
+        @JavascriptInterface
+        public String addTile() {
+            if (Build.VERSION.SDK_INT >= 33) {
+                StatusBarManager sb = getSystemService(StatusBarManager.class);
+                if (sb != null) {
+                    sb.requestAddTileService(new ComponentName(MainActivity.this, ZeusTile.class), "ZEUS",
+                            Icon.createWithResource(MainActivity.this, R.drawable.ic_stat), getMainExecutor(), r -> { });
+                    return "ok";
+                }
+            }
+            return "Bildirim panelini aşağı çek → kalem simgesi (düzenle) → ZEUS kutucuğunu yukarı sürükle.";
+        }
+
+        @JavascriptInterface
+        public void openAssistantSettings() {
+            if (!launch(new Intent("android.settings.MANAGE_DEFAULT_APPS_SETTINGS"))) {
+                if (!launch(new Intent(Settings.ACTION_VOICE_INPUT_SETTINGS))) launch(new Intent(Settings.ACTION_SETTINGS));
+            }
+        }
+
+        @JavascriptInterface
+        public void briefSchedule(boolean on, int hour, int minute) {
+            BriefReceiver.schedule(MainActivity.this, on, hour, minute);
+        }
+
+        @JavascriptInterface
         public boolean consumeWake() {
             boolean w = wakePending;
             wakePending = false;
@@ -1034,6 +1157,14 @@ public class MainActivity extends Activity {
             });
         } else {
             super.onBackPressed();
+        }
+    }
+
+    static class SharedPreferencesHolder {
+        static boolean brief; static int h = 8, m = 0;
+        static void load(Context c) {
+            android.content.SharedPreferences p = c.getSharedPreferences(WakeService.PREFS, Context.MODE_PRIVATE);
+            brief = p.getBoolean("brief", false); h = p.getInt("briefH", 8); m = p.getInt("briefM", 0);
         }
     }
 }
