@@ -27,18 +27,18 @@ jobs:
         run: gradle assembleRelease --no-daemon --stacktrace
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk JARVIS.apk
+        run: cp app/build/outputs/apk/release/app-release.apk ZEUS.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: JARVIS-apk
-          path: JARVIS.apk
+          name: ZEUS-apk
+          path: ZEUS.apk
 
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest JARVIS.apk \
-            --title "J.A.R.V.I.S (build ${{ github.run_number }})" \
-            --notes "Telefonda bu sayfayı açıp JARVIS.apk dosyasına dokunarak indir ve kur."
+          gh release create latest ZEUS.apk \
+            --title "ZEUS (build ${{ github.run_number }})" \
+            --notes "Telefonda bu sayfayı açıp ZEUS.apk dosyasına dokunarak indir ve kur."

@@ -20,7 +20,7 @@ public class ReminderReceiver extends BroadcastReceiver {
 
         Notification n = new Notification.Builder(context, MainActivity.CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat)
-                .setContentTitle("J.A.R.V.I.S · Hatırlatma")
+                .setContentTitle("ZEUS · Hatırlatma")
                 .setContentText(text)
                 .setStyle(new Notification.BigTextStyle().bigText(text))
                 .setContentIntent(pi)

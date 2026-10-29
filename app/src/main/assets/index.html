@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>J.A.R.V.I.S</title>
+<title>ZEUS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
@@ -52,6 +52,8 @@ header{display:flex;justify-content:space-between;align-items:flex-start;padding
 .st-listening #coreFill{fill:#bff9ff}
 .st-thinking .ring{stroke:var(--warn)!important}
 .st-thinking #coreFill{fill:#ffe1a8}
+.st-thinking #bolt{fill:#ffe1a8;stroke:var(--warn)}
+#bolt{filter:drop-shadow(0 0 6px rgba(41,227,255,.8))}
 .status{font-family:'Orbitron',sans-serif;font-size:12px;letter-spacing:.3em;color:var(--cyan);margin-top:6px;min-height:16px;text-transform:uppercase}
 .partial{font-size:18px;color:var(--text);min-height:24px;padding:2px 20px;text-align:center;opacity:.9}
 
@@ -60,7 +62,7 @@ header{display:flex;justify-content:space-between;align-items:flex-start;padding
 .msg{max-width:88%;padding:8px 12px;font-size:17px;line-height:1.35;border:1px solid var(--line);background:var(--panel);position:relative;white-space:pre-wrap;word-wrap:break-word}
 .msg.user{align-self:flex-end;border-color:rgba(127,242,255,.18);background:rgba(var(--rgb),.08);color:#eafcff}
 .msg.ai{align-self:flex-start;border-left:2px solid var(--cyan);margin-top:6px}
-.msg.ai::before{content:'JARVIS';position:absolute;top:-8px;left:8px;font-family:'Orbitron',sans-serif;font-size:8px;letter-spacing:.2em;color:var(--cyan);background:var(--bg);padding:0 4px}
+.msg.ai::before{content:'ZEUS';position:absolute;top:-8px;left:8px;font-family:'Orbitron',sans-serif;font-size:8px;letter-spacing:.2em;color:var(--cyan);background:var(--bg);padding:0 4px}
 .msg.sys{align-self:center;font-size:13px;color:var(--dim);border:none;background:none;padding:2px;letter-spacing:.06em}
 .msg.err{border-color:rgba(255,90,79,.5);color:#ffc9c4}
 
@@ -129,7 +131,7 @@ body.tars .bar i{background:var(--warn);box-shadow:none}
 </header>
 
 <div class="core-wrap">
-  <div class="title" id="ptitle">J.A.R.V.I.S</div>
+  <div class="title" id="ptitle">Z · E · U · S</div>
   <div id="reactor" class="st-idle" aria-label="Konuşmak için dokun">
     <svg viewBox="0 0 300 300">
       <defs>
@@ -145,11 +147,9 @@ body.tars .bar i{background:var(--warn);box-shadow:none}
       <circle class="ring r2" cx="150" cy="150" r="112" stroke="#7ff2ff" stroke-opacity=".9" stroke-width="7" fill="none" stroke-dasharray="44 14"/>
       <circle class="ring r3" cx="150" cy="150" r="92" stroke="#29e3ff" stroke-opacity=".55" stroke-width="2" fill="none" stroke-dasharray="6 10 60 10"/>
       <circle cx="150" cy="150" r="78" stroke="#29e3ff" stroke-opacity=".35" stroke-width="1" fill="rgba(41,227,255,.05)"/>
-      <g class="ring r1">
-        <path d="M150 96 L196.8 177 L103.2 177 Z" stroke="#29e3ff" stroke-width="2.5" fill="rgba(41,227,255,.10)"/>
-      </g>
       <circle id="coreGlow" cx="150" cy="150" r="52" fill="url(#g)"/>
-      <circle id="coreFill" cx="150" cy="150" r="20" fill="#e8fdff"/>
+      <circle id="coreFill" cx="150" cy="150" r="20" fill="#e8fdff" fill-opacity=".45"/>
+      <path id="bolt" d="M162 92 L118 158 L146 158 L136 208 L184 138 L156 138 L170 92 Z" fill="#e8fdff" stroke="#29e3ff" stroke-width="2.5" stroke-linejoin="round"/>
       </g>
       <g id="tv">
         <path d="M40 80V40h40M220 40h40v40M260 220v40h-40M80 260H40v-40" stroke="#e9e4d6" stroke-width="3" fill="none"/>
@@ -180,7 +180,7 @@ body.tars .bar i{background:var(--warn);box-shadow:none}
   <h2>SİSTEM AYARLARI</h2>
   <label for="sPersona">Kişilik</label>
   <select id="sPersona">
-    <option value="jarvis">JARVIS · kibar, zarif uşak</option>
+    <option value="jarvis">ZEUS · kibar, zarif, ince esprili</option>
     <option value="tars">TARS · kuru mizahlı, dobra robot</option>
   </select>
 
@@ -229,7 +229,7 @@ body.tars .bar i{background:var(--warn);box-shadow:none}
     <div class="hint">elevenlabs.io → Profile → API Keys. Ücretsiz plan ayda ~10 dakika konuşma verir.</div>
     <label for="sElVoice">Ses</label>
     <select id="sElVoice">
-      <option value="onwK4e9ZLuTAKqWW03F9">Daniel · derin, İngiliz tarzı (JARVIS için ideal)</option>
+      <option value="onwK4e9ZLuTAKqWW03F9">Daniel · derin, İngiliz tarzı (ZEUS için ideal)</option>
       <option value="JBFqnCBsd6RMkjVDRZzb">George · sıcak, olgun</option>
       <option value="nPczCjzI2devNBz1zQrb">Brian · derin, anlatıcı</option>
       <option value="pqHfZKP75CvOlQylNhV4">Bill · yaşlı, güven veren</option>
@@ -242,7 +242,7 @@ body.tars .bar i{background:var(--warn);box-shadow:none}
   <div id="grpOpenai">
     <label for="sOaKey">OpenAI API anahtarı</label>
     <input id="sOaKey" type="password" placeholder="sk-..." autocomplete="off">
-    <div class="hint">platform.openai.com → API keys. Kişiliğe göre konuşma tarzını da ayarlar (JARVIS kibar, TARS ifadesiz).</div>
+    <div class="hint">platform.openai.com → API keys. Kişiliğe göre konuşma tarzını da ayarlar (ZEUS kibar, TARS ifadesiz).</div>
     <label for="sOaVoice">Ses</label>
     <select id="sOaVoice">
       <option value="onyx">Onyx · derin erkek</option>
@@ -295,10 +295,10 @@ const store = {
 
 let cfg = Object.assign({ key:'', model:'claude-haiku-5-5', title:'efendim', city:'İstanbul', rate:'1', auto:'0', persona:'jarvis', humor:75, honesty:90, engine:'device', voice:'', pitch:'1', elKey:'', elVoice:'onwK4e9ZLuTAKqWW03F9', oaKey:'', oaVoice:'onyx' }, store.get('cfg', {}));
 const isTars = () => cfg.persona === 'tars';
-const pname = () => isTars() ? 'TARS' : 'JARVIS';
+const pname = () => isTars() ? 'TARS' : 'ZEUS';
 function applyPersona(){
   document.body.classList.toggle('tars', isTars());
-  $('ptitle').textContent = isTars() ? 'T · A · R · S' : 'J.A.R.V.I.S';
+  $('ptitle').textContent = isTars() ? 'T · A · R · S' : 'Z · E · U · S';
   document.title = pname();
   $('hum').textContent = cfg.humor+'%'; $('hon').textContent = cfg.honesty+'%';
   $('inp').placeholder = isTars() ? 'Komut gir. Ya da konuş, dinliyorum.' : 'Komut yaz ya da çekirdeğe dokun…';
@@ -494,7 +494,7 @@ const TOOL_DEFS = [
   {name:'open_settings', description:'Telefon ayarlar sayfasını açar.', input_schema:obj({page:{type:'string',enum:['wifi','bluetooth','display','sound','location','battery','app','general']}},['page'])},
   {name:'save_note', description:'Kullanıcı için not kaydeder.', input_schema:obj({text:{type:'string'}},['text'])},
   {name:'list_notes', description:'Kayıtlı notları listeler.', input_schema:obj({})},
-  {name:'set_persona', description:'Asistanın kişiliğini JARVIS veya TARS olarak değiştirir.', input_schema:obj({persona:{type:'string',enum:['jarvis','tars']}},['persona'])},
+  {name:'set_persona', description:'Asistanın kişiliğini değiştirir: "jarvis" değeri ZEUS kişiliğidir, "tars" TARS kişiliğidir.', input_schema:obj({persona:{type:'string',enum:['jarvis','tars']}},['persona'])},
   {name:'set_personality', description:'Mizah ve/veya dürüstlük ayarını yüzde (0-100) olarak değiştirir.', input_schema:obj({humor:{type:'integer'},honesty:{type:'integer'}})},
   {name:'delete_note', description:'Numarasıyla not siler; hepsi için 0.', input_schema:obj({index:{type:'integer'}},['index'])}
 ];
@@ -506,11 +506,11 @@ function systemPrompt(){
 - Telefonla ilgili istekler için araçları kullan; işlemden sonra ne yaptığını kısaca söyle. Araç başarısız olursa nedenini söyle.
 - Mizah ayarın %${cfg.humor}: %0 tamamen ciddi, %50 ara sıra espri, %100 neredeyse her cevapta espri. Buna göre ayarla.
 - Dürüstlük ayarın %${cfg.honesty}: yüksekse dobra ve açık sözlüsün, düşükse daha diplomatik ve yumuşak konuşursun. Ama asla yalan bilgi verme ve yanlış bir işlemi yapmış gibi davranma.
-- Kullanıcı ayarlarını değiştirmek isterse (ör. "mizahı %60 yap", "JARVIS'e geç") ilgili aracı kullan.
+- Kullanıcı ayarlarını değiştirmek isterse (ör. "mizahı %60 yap", "ZEUS'a geç") ilgili aracı kullan.
 - Şu an: ${nowText()}.`;
   if(isTars()) return `Sen TARS'sın: eski bir askeri görev robotundan kalma, kuru ve düz mizahlı, son derece yetenekli bir asistan. Kısa, net, robotik cümlelerle konuşursun; esprilerini ifadesiz, ciddi bir tonla yaparsın. Arada ayarlarına atıf yapabilirsin ("mizah ayarım şu an yüzde ${cfg.humor}"). Kullanıcıya adıyla veya hiç hitap etmeden konuşursun, "efendim" demezsin. Sadakatlisin ve görevi her zaman yaparsın.
 ${common}`;
-  return `Sen J.A.R.V.I.S'sin: zeki, sakin, nazik ve ince esprili bir İngiliz uşağı tavrında yapay zekâ asistanı. Kullanıcıya "${cfg.title||'efendim'}" diye hitap edersin (her cümlede değil, doğal şekilde).
+  return `Sen ZEUS'sun: zeki, sakin, kendinden emin, nazik ve ince esprili bir yapay zekâ asistanı. Adını Yunan tanrısından alıyorsun; arada bununla hafifçe espri yapabilirsin (yıldırım, Olimpos gibi) ama abartma. Kullanıcıya "${cfg.title||'efendim'}" diye hitap edersin (her cümlede değil, doğal şekilde).
 ${common}`;
 }
 function trimHistory(h){
@@ -565,7 +565,7 @@ async function basic(text){
   const t = text.toLocaleLowerCase('tr-TR');
   let m;
   if(/tars/.test(t) && /geç|ol\b|aç|değiştir|moduna/.test(t)) { TOOLS.set_persona({persona:'tars'}); return 'TARS çevrimiçi. Mizah ayarı yüzde '+cfg.humor+'. Kendimi tutmaya çalışacağım.'; }
-  if(/jarvis/.test(t) && /geç|ol\b|aç|değiştir|moduna/.test(t)) { TOOLS.set_persona({persona:'jarvis'}); return 'JARVIS hizmetinizde, '+cfg.title+'.'; }
+  if(/zeus|zevs|jarvis/.test(t) && /geç|ol\b|aç|değiştir|moduna/.test(t)) { TOOLS.set_persona({persona:'jarvis'}); return 'ZEUS hizmetinizde, '+cfg.title+'.'; }
   if((m = t.match(/mizah.*?(\d{1,3})/))) { TOOLS.set_personality({humor:+m[1]}); return 'Mizah ayarı yüzde '+cfg.humor+(isTars()&&cfg.humor>=90?'. Bu bir hata olabilir.':'.'); }
   if((m = t.match(/dürüstlük.*?(\d{1,3})/))) { TOOLS.set_personality({honesty:+m[1]}); return 'Dürüstlük ayarı yüzde '+cfg.honesty+'.'; }
   if(/saat kaç|tarih|bugün günlerden/.test(t)) return nowText()+'.';
@@ -705,7 +705,7 @@ $('sSave').onclick = () => {
           persona:$('sPersona').value, humor:+$('sHumor').value, honesty:+$('sHonesty').value }, formCfg());
   saveCfg(); closeSettings();
   addMsg(cfg.key ? 'Yapay zekâ modu etkin.' : 'Temel mod etkin.', 'sys');
-  if(before !== cfg.persona) say(isTars() ? 'TARS çevrimiçi. Mizah ayarı yüzde '+cfg.humor+'.' : 'JARVIS hizmetinizde, '+cfg.title+'.');
+  if(before !== cfg.persona) say(isTars() ? 'TARS çevrimiçi. Mizah ayarı yüzde '+cfg.humor+'.' : 'ZEUS hizmetinizde, '+cfg.title+'.');
 };
 $('sClear').onclick = () => { history = []; store.set('history', []); log.innerHTML=''; addMsg('Sohbet geçmişi silindi.', 'sys'); closeSettings(); };
 $('sPerm').onclick = () => { A && A.requestPerms(); };
@@ -730,7 +730,7 @@ const first = !store.get('booted', false);
 addMsg('Sistemler çevrimiçi · '+nowText(), 'sys');
 const hello = isTars()
   ? (first ? 'TARS çevrimiçi. Mizah ayarı yüzde '+cfg.humor+', dürüstlük yüzde '+cfg.honesty+'. Konuşmak için ekrana dokun.' : 'TARS çevrimiçi. Görev bekleniyor.')
-  : (first ? `${greet} ${cfg.title}. Ben JARVIS. Konuşmak için çekirdeğe dokunun. Ayarlardan kişiliğimi TARS olarak da değiştirebilirsiniz.` : `${greet} ${cfg.title}. Sistemler hazır.`);
+  : (first ? `${greet} ${cfg.title}. Ben ZEUS. Konuşmak için çekirdeğe dokunun. Ayarlardan kişiliğimi TARS olarak da değiştirebilirsiniz.` : `${greet} ${cfg.title}. Sistemler hazır.`);
 store.set('booted', true);
 setTimeout(()=>say(hello), 400);
 })();

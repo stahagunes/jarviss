@@ -144,7 +144,7 @@ public class MainActivity extends Activity {
 
     private void createChannel() {
         NotificationChannel ch = new NotificationChannel(CHANNEL_ID, "Hatırlatmalar", NotificationManager.IMPORTANCE_HIGH);
-        ch.setDescription("J.A.R.V.I.S hatırlatmaları");
+        ch.setDescription("ZEUS hatırlatmaları");
         NotificationManager nm = getSystemService(NotificationManager.class);
         if (nm != null) nm.createNotificationChannel(ch);
     }

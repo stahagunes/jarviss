@@ -4,27 +4,15 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- outer ring -->
     <path
         android:pathData="M54,24 A30,30 0 1,1 53.99,24 Z"
         android:strokeColor="#29E3FF"
         android:strokeWidth="2.5"
-        android:fillColor="#00000000" />
-    <!-- segmented middle ring -->
+        android:fillColor="#1029E3FF" />
     <path
-        android:pathData="M54,32 A22,22 0 0,1 76,54 M54,76 A22,22 0 0,1 32,54 M76,54 A22,22 0 0,1 54,76 M32,54 A22,22 0 0,1 54,32"
-        android:strokeColor="#7FF2FF"
-        android:strokeWidth="4"
-        android:strokeLineCap="butt"
-        android:fillColor="#00000000" />
-    <!-- triangle -->
-    <path
-        android:pathData="M54,41 L65.3,60.5 L42.7,60.5 Z"
+        android:pathData="M58.3,33.1 L42.5,56.9 L52.6,56.9 L49,74.9 L66.2,49.7 L56.2,49.7 L61.2,33.1 Z"
+        android:fillColor="#E8FDFF"
         android:strokeColor="#29E3FF"
-        android:strokeWidth="2"
-        android:fillColor="#3329E3FF" />
-    <!-- core -->
-    <path
-        android:pathData="M54,48 A6,6 0 1,1 53.99,48 Z"
-        android:fillColor="#E8FDFF" />
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round" />
 </vector>

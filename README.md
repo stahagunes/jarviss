@@ -1,9 +1,9 @@
-# J.A.R.V.I.S — Android sesli asistan
+# ZEUS — Android sesli asistan
 
 Iron Man arayüzlü, Türkçe konuşan kişisel asistan.
 
 ## Kurulum
-1. **Releases → latest → JARVIS.apk** dosyasını telefonda indir.
+1. **Releases → latest → ZEUS.apk** dosyasını telefonda indir.
 2. Aç, "Bilinmeyen kaynaklardan yüklemeye izin ver" de, kur.
 3. İlk açılışta mikrofon, konum, rehber, arama ve bildirim izinlerini ver.
 4. Yapay zekâ sohbeti için ⚙ → Claude API anahtarını gir (console.anthropic.com).
