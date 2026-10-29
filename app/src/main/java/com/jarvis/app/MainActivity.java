@@ -36,6 +36,7 @@ import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import android.speech.tts.Voice;
+import android.util.Base64;
 import android.view.KeyEvent;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
@@ -45,6 +46,8 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
 import org.json.JSONArray;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import org.json.JSONObject;
 
 import java.io.File;
@@ -186,6 +189,35 @@ public class MainActivity extends Activity {
             player.release();
             player = null;
         }
+    }
+
+    static byte[] wavHeader(int dataLen, int rate, int channels, int bits) {
+        ByteBuffer b = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN);
+        b.put("RIFF".getBytes(StandardCharsets.US_ASCII)).putInt(36 + dataLen).put("WAVE".getBytes(StandardCharsets.US_ASCII));
+        b.put("fmt ".getBytes(StandardCharsets.US_ASCII)).putInt(16).putShort((short) 1).putShort((short) channels)
+                .putInt(rate).putInt(rate * channels * bits / 8).putShort((short) (channels * bits / 8)).putShort((short) bits);
+        b.put("data".getBytes(StandardCharsets.US_ASCII)).putInt(dataLen);
+        return b.array();
+    }
+
+    private void playFile(final File f) {
+        main.post(() -> {
+            try {
+                stopPlayer();
+                if (tts != null) tts.stop();
+                player = new MediaPlayer();
+                player.setAudioAttributes(new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ASSISTANT)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+                player.setDataSource(f.getAbsolutePath());
+                player.setOnPreparedListener(mp -> { mp.start(); js("onSpeakState(true)"); });
+                player.setOnCompletionListener(mp -> { js("onSpeakState(false)"); stopPlayer(); f.delete(); });
+                player.setOnErrorListener((mp, w, e) -> { js("onCloudTtsError(0,'oynatma hatası')"); stopPlayer(); f.delete(); return true; });
+                player.prepareAsync();
+            } catch (Exception e) {
+                js("onCloudTtsError(0," + q(e.getMessage()) + ")");
+            }
+        });
     }
 
     private void speakNow(String text) {
@@ -333,6 +365,53 @@ public class MainActivity extends Activity {
             return arr.toString();
         }
 
+        /** Gemini TTS: JSON response with base64 PCM; wrapped as WAV and played. */
+        @JavascriptInterface
+        public void geminiSpeak(final String url, final String headersJson, final String body) {
+            new Thread(() -> {
+                HttpURLConnection con = null;
+                try {
+                    con = (HttpURLConnection) new URL(url).openConnection();
+                    con.setRequestMethod("POST");
+                    con.setConnectTimeout(15000);
+                    con.setReadTimeout(90000);
+                    JSONObject h = new JSONObject(headersJson);
+                    Iterator<String> keys = h.keys();
+                    while (keys.hasNext()) { String k = keys.next(); con.setRequestProperty(k, h.getString(k)); }
+                    con.setDoOutput(true);
+                    try (OutputStream os = con.getOutputStream()) { os.write(body.getBytes(StandardCharsets.UTF_8)); }
+                    int status = con.getResponseCode();
+                    InputStream is = status >= 400 ? con.getErrorStream() : con.getInputStream();
+                    StringBuilder sb = new StringBuilder();
+                    if (is != null) {
+                        try (BufferedReader br = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+                            String line; while ((line = br.readLine()) != null) sb.append(line);
+                        }
+                    }
+                    if (status >= 400) { js("onCloudTtsError(" + status + "," + q(sb.toString()) + ")"); return; }
+                    JSONObject part = new JSONObject(sb.toString()).getJSONArray("candidates").getJSONObject(0)
+                            .getJSONObject("content").getJSONArray("parts").getJSONObject(0).getJSONObject("inlineData");
+                    String mime = part.optString("mimeType", "audio/L16;rate=24000");
+                    int rate = 24000;
+                    int ri = mime.indexOf("rate=");
+                    if (ri >= 0) {
+                        try { rate = Integer.parseInt(mime.substring(ri + 5).replaceAll("[^0-9].*$", "")); } catch (Exception ignored) { }
+                    }
+                    byte[] pcm = Base64.decode(part.getString("data"), Base64.DEFAULT);
+                    File f = new File(getCacheDir(), "speech_" + SystemClock.uptimeMillis() + ".wav");
+                    try (FileOutputStream fo = new FileOutputStream(f)) {
+                        fo.write(wavHeader(pcm.length, rate, 1, 16));
+                        fo.write(pcm);
+                    }
+                    playFile(f);
+                } catch (Exception e) {
+                    js("onCloudTtsError(0," + q("Gemini ses hatası: " + e.getMessage()) + ")");
+                } finally {
+                    if (con != null) con.disconnect();
+                }
+            }).start();
+        }
+
         /** Downloads speech audio from a cloud TTS API and plays it. */
         @JavascriptInterface
         public void cloudSpeak(final String url, final String headersJson, final String body) {
@@ -365,23 +444,7 @@ public class MainActivity extends Activity {
                         byte[] buf = new byte[16384]; int n;
                         while ((n = is.read(buf)) > 0) fo.write(buf, 0, n);
                     }
-                    main.post(() -> {
-                        try {
-                            stopPlayer();
-                            if (tts != null) tts.stop();
-                            player = new MediaPlayer();
-                            player.setAudioAttributes(new AudioAttributes.Builder()
-                                    .setUsage(AudioAttributes.USAGE_ASSISTANT)
-                                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
-                            player.setDataSource(f.getAbsolutePath());
-                            player.setOnPreparedListener(mp -> { mp.start(); js("onSpeakState(true)"); });
-                            player.setOnCompletionListener(mp -> { js("onSpeakState(false)"); stopPlayer(); f.delete(); });
-                            player.setOnErrorListener((mp, w, e) -> { js("onCloudTtsError(0,'oynatma hatası')"); stopPlayer(); f.delete(); return true; });
-                            player.prepareAsync();
-                        } catch (Exception e) {
-                            js("onCloudTtsError(0," + q(e.getMessage()) + ")");
-                        }
-                    });
+                    playFile(f);
                 } catch (Exception e) {
                     js("onCloudTtsError(0," + q("Bağlantı hatası: " + e.getMessage()) + ")");
                 } finally {

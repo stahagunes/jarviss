@@ -192,7 +192,7 @@ body.tars .bar i{background:var(--warn);box-shadow:none}
 
   <label for="sKey">Claude API anahtarı</label>
   <input id="sKey" type="password" placeholder="sk-ant-..." autocomplete="off">
-  <div class="hint">console.anthropic.com → API Keys. Anahtar sadece bu telefonda saklanır. Boş bırakırsan temel komutlar (saat, hava, fener, alarm, uygulama açma) yine çalışır.</div>
+  <div class="hint">console.anthropic.com → Settings → API Keys → Create Key. Kullanmak için Billing bölümünden kredi yüklemen gerekir (Claude Pro aboneliği API'yi kapsamaz). Haiku 5.5 ile binlerce soru birkaç dolar tutar. Anahtar sadece bu telefonda saklanır. Boş bırakırsan temel komutlar (saat, hava, fener, alarm, uygulama açma) yine çalışır.</div>
 
   <label for="sModel">Model</label>
   <select id="sModel">
@@ -209,7 +209,9 @@ body.tars .bar i{background:var(--warn);box-shadow:none}
 
   <label for="sEngine">Ses motoru</label>
   <select id="sEngine">
-    <option value="device">Telefon sesi (ücretsiz)</option>
+    <option value="gemini">Google Gemini · ücretsiz, çok gerçekçi (önerilen)</option>
+    <option value="azure">Microsoft Azure · ücretsiz kota, doğal Türkçe</option>
+    <option value="device">Telefon sesi (ücretsiz, internetsiz)</option>
     <option value="eleven">ElevenLabs (en doğal, insan gibi)</option>
     <option value="openai">OpenAI (doğal, karaktere uygun)</option>
   </select>
@@ -221,6 +223,51 @@ body.tars .bar i{background:var(--warn);box-shadow:none}
     <div class="rng"><input id="sPitch" type="range" min="0.6" max="1.4" step="0.05"><b id="sPitchV"></b></div>
     <div class="hint">Liste boşsa ya da sesler kötüyse: aşağıdaki düğmeyle Google ses paketlerinden Türkçe'yi indir, "yüksek kalite" seç.</div>
     <div class="row" style="margin-top:10px"><button class="pbtn ghost" id="sTtsSet">SES PAKETLERİ</button></div>
+  </div>
+
+  <div id="grpGemini">
+    <label for="sGmKey">Gemini API anahtarı (ücretsiz)</label>
+    <input id="sGmKey" type="password" placeholder="AIza..." autocomplete="off">
+    <div class="hint">aistudio.google.com → Get API key → Create API key. Kredi kartı gerekmez. Ücretsiz kotası günlük sınırlıdır; dolarsa telefon sesine geçer.</div>
+    <label for="sGmVoice">Ses</label>
+    <select id="sGmVoice">
+      <option value="Charon">Charon · derin, güven veren erkek</option>
+      <option value="Orus">Orus · kararlı erkek</option>
+      <option value="Algenib">Algenib · kalın, boğuk erkek</option>
+      <option value="Iapetus">Iapetus · net erkek</option>
+      <option value="Alnilam">Alnilam · sağlam erkek</option>
+      <option value="Schedar">Schedar · dengeli erkek</option>
+      <option value="Sadaltager">Sadaltager · bilgili erkek</option>
+      <option value="Rasalgethi">Rasalgethi · anlatıcı erkek</option>
+      <option value="Umbriel">Umbriel · rahat erkek</option>
+      <option value="Fenrir">Fenrir · enerjik erkek</option>
+      <option value="Puck">Puck · neşeli erkek</option>
+      <option value="Enceladus">Enceladus · fısıltılı erkek</option>
+      <option value="Kore">Kore · kararlı kadın</option>
+      <option value="Sulafat">Sulafat · sıcak kadın</option>
+      <option value="Aoede">Aoede · ferah kadın</option>
+      <option value="Leda">Leda · genç kadın</option>
+      <option value="Zephyr">Zephyr · parlak kadın</option>
+    </select>
+    <label for="sGmModel">Ses modeli</label>
+    <select id="sGmModel">
+      <option value="gemini-3.1-flash-tts-preview">Gemini 3.1 Flash TTS (yeni)</option>
+      <option value="gemini-2.5-flash-preview-tts">Gemini 2.5 Flash TTS</option>
+    </select>
+    <div class="hint">Gemini, kişiliğe göre konuşma tarzını da ayarlar: ZEUS sakin ve sıcak, TARS kuru ve ifadesiz.</div>
+  </div>
+
+  <div id="grpAzure">
+    <label for="sAzKey">Azure Speech anahtarı</label>
+    <input id="sAzKey" type="password" placeholder="Key 1" autocomplete="off">
+    <div class="hint">portal.azure.com → "Speech service" oluştur, fiyat katmanı "Free F0" seç → Keys and Endpoint. Ayda 500.000 karakter ücretsiz.</div>
+    <label for="sAzRegion">Bölge (Location)</label>
+    <input id="sAzRegion" placeholder="westeurope">
+    <label for="sAzVoice">Ses</label>
+    <select id="sAzVoice">
+      <option value="tr-TR-AhmetNeural">Ahmet · erkek</option>
+      <option value="tr-TR-EmelNeural">Emel · kadın</option>
+    </select>
   </div>
 
   <div id="grpEleven">
@@ -293,7 +340,7 @@ const store = {
   set(k, v){ try{ localStorage.setItem('jv_'+k, JSON.stringify(v)); }catch(e){} }
 };
 
-let cfg = Object.assign({ key:'', model:'claude-haiku-5-5', title:'efendim', city:'İstanbul', rate:'1', auto:'0', persona:'jarvis', humor:75, honesty:90, engine:'device', voice:'', pitch:'1', elKey:'', elVoice:'onwK4e9ZLuTAKqWW03F9', oaKey:'', oaVoice:'onyx' }, store.get('cfg', {}));
+let cfg = Object.assign({ key:'', model:'claude-haiku-5-5', title:'efendim', city:'İstanbul', rate:'1', auto:'0', persona:'jarvis', humor:75, honesty:90, engine:'device', voice:'', pitch:'1', elKey:'', elVoice:'onwK4e9ZLuTAKqWW03F9', oaKey:'', oaVoice:'onyx', gmKey:'', gmVoice:'Charon', gmModel:'gemini-3.1-flash-tts-preview', azKey:'', azRegion:'westeurope', azVoice:'tr-TR-AhmetNeural' }, store.get('cfg', {}));
 const isTars = () => cfg.persona === 'tars';
 const pname = () => isTars() ? 'TARS' : 'ZEUS';
 function applyPersona(){
@@ -332,6 +379,25 @@ function speak(text, c){
   const clean = text.replace(/[*#_`>|⟡]/g,'').replace(/\s+/g,' ').trim();
   lastSpoken = clean;
   const tars = c.persona === 'tars';
+  if(A && c.engine === 'gemini' && c.gmKey){
+    const style = tars
+      ? 'Aşağıdaki Türkçe metni kuru, ifadesiz, düz ve hafif robotik bir tonla, esprileri tamamen ciddi bir yüzle seslendir'
+      : 'Aşağıdaki Türkçe metni sakin, kendinden emin, sıcak ve hafif gülümseyen bir tonla, doğal bir insan gibi seslendir';
+    A.geminiSpeak('https://generativelanguage.googleapis.com/v1beta/models/'+(c.gmModel||'gemini-3.1-flash-tts-preview')+':generateContent',
+      JSON.stringify({'x-goog-api-key':c.gmKey, 'content-type':'application/json'}),
+      JSON.stringify({contents:[{parts:[{text: style+': "'+clean+'"'}]}],
+        generationConfig:{responseModalities:['AUDIO'], speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:c.gmVoice||'Charon'}}}}}));
+    return;
+  }
+  if(A && c.engine === 'azure' && c.azKey){
+    const esc = t => t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const rate = Math.round(((parseFloat(c.rate)||1)-1)*100);
+    const ssml = `<speak version="1.0" xml:lang="tr-TR"><voice name="${c.azVoice||'tr-TR-AhmetNeural'}"><prosody rate="${rate>=0?'+':''}${rate}%" pitch="${tars?'-8%':'0%'}">${esc(clean)}</prosody></voice></speak>`;
+    A.cloudSpeak('https://'+(c.azRegion||'westeurope').trim().toLowerCase()+'.tts.speech.microsoft.com/cognitiveservices/v1',
+      JSON.stringify({'Ocp-Apim-Subscription-Key':c.azKey, 'Content-Type':'application/ssml+xml',
+        'X-Microsoft-OutputFormat':'audio-24khz-96kbitrate-mono-mp3', 'User-Agent':'ZEUS'}), ssml);
+    return;
+  }
   if(A && c.engine === 'eleven' && c.elKey){
     const vid = c.elVoice || 'onwK4e9ZLuTAKqWW03F9';
     A.cloudSpeak('https://api.elevenlabs.io/v1/text-to-speech/'+encodeURIComponent(vid)+'?output_format=mp3_44100_128',
@@ -356,7 +422,8 @@ window.onCloudTtsError = (status, msg) => {
   let m = '';
   try{ const j = JSON.parse(msg); m = (j.detail && (j.detail.message||j.detail.status)) || (j.error && j.error.message) || ''; }catch(e){ m = String(msg||''); }
   if(status===401) m = 'API anahtarı geçersiz';
-  if(status===429) m = 'kota/limit doldu';
+  if(status===429) m = 'ücretsiz kota/limit doldu, biraz sonra tekrar dener';
+  if(status===404 && cfg.engine==='gemini') m = 'bu Gemini ses modeli bulunamadı, ayarlardan diğer modeli seç';
   addMsg('Ses servisi hatası'+(status?' ('+status+')':'')+': '+String(m).slice(0,120)+' · telefon sesi kullanıldı', 'sys');
   deviceSpeak(lastSpoken, cfg);
 };
@@ -655,6 +722,8 @@ function openSettings(){
   $('sCity').value = cfg.city; $('sRate').value = cfg.rate; $('sAuto').value = cfg.auto;
   $('sEngine').value = cfg.engine; $('sPitch').value = cfg.pitch; $('sElKey').value = cfg.elKey; $('sOaKey').value = cfg.oaKey;
   $('sOaVoice').value = cfg.oaVoice;
+  $('sGmKey').value = cfg.gmKey; $('sGmVoice').value = cfg.gmVoice; $('sGmModel').value = cfg.gmModel;
+  $('sAzKey').value = cfg.azKey; $('sAzRegion').value = cfg.azRegion; $('sAzVoice').value = cfg.azVoice;
   const preset = [...$('sElVoice').options].some(o => o.value === cfg.elVoice);
   $('sElVoice').value = preset ? cfg.elVoice : 'custom'; $('sElCustom').value = preset ? '' : cfg.elVoice;
   fillVoices(); $('sVoice').value = cfg.voice; showEngine();
@@ -676,6 +745,8 @@ function showEngine(){
   const e = $('sEngine').value;
   $('grpDevice').style.display = e==='device' ? '' : 'none';
   $('grpEleven').style.display = e==='eleven' ? '' : 'none';
+  $('grpGemini').style.display = e==='gemini' ? '' : 'none';
+  $('grpAzure').style.display = e==='azure' ? '' : 'none';
   $('grpOpenai').style.display = e==='openai' ? '' : 'none';
   $('sElCustom').style.display = $('sElVoice').value==='custom' ? '' : 'none';
   $('sPitchV').textContent = (+$('sPitch').value).toFixed(2);
@@ -683,13 +754,17 @@ function showEngine(){
 function formCfg(){
   return { engine:$('sEngine').value, voice:$('sVoice').value, pitch:$('sPitch').value,
     elKey:$('sElKey').value.trim(), elVoice: $('sElVoice').value==='custom' ? $('sElCustom').value.trim() : $('sElVoice').value,
-    oaKey:$('sOaKey').value.trim(), oaVoice:$('sOaVoice').value };
+    oaKey:$('sOaKey').value.trim(), oaVoice:$('sOaVoice').value,
+    gmKey:$('sGmKey').value.trim(), gmVoice:$('sGmVoice').value, gmModel:$('sGmModel').value,
+    azKey:$('sAzKey').value.trim(), azRegion:$('sAzRegion').value.trim()||'westeurope', azVoice:$('sAzVoice').value };
 }
 $('sEngine').onchange = showEngine; $('sElVoice').onchange = showEngine; $('sPitch').oninput = showEngine;
 $('sTtsSet').onclick = () => { A && A.openSettings('tts'); };
 $('sTest').onclick = () => {
   const c = Object.assign({}, cfg, formCfg(), {persona:$('sPersona').value, rate:$('sRate').value});
   if(c.engine==='eleven' && !c.elKey){ addMsg('Önce ElevenLabs anahtarını gir.', 'sys'); return; }
+  if(c.engine==='gemini' && !c.gmKey){ addMsg('Önce Gemini anahtarını gir.', 'sys'); return; }
+  if(c.engine==='azure' && !c.azKey){ addMsg('Önce Azure anahtarını gir.', 'sys'); return; }
   if(c.engine==='openai' && !c.oaKey){ addMsg('Önce OpenAI anahtarını gir.', 'sys'); return; }
   speak(c.persona==='tars' ? 'TARS çevrimiçi. Mizah ayarım yüzde yetmiş beş. Bu sesi beğendiysen kaydet.' : 'Merhaba efendim. Bu ses sizin için uygun mu? Beğendiyseniz kaydedebilirsiniz.', c);
 };
