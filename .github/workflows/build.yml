@@ -23,6 +23,18 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      - name: Bundle wake-word model and fonts
+        run: |
+          set -e
+          mkdir -p app/src/main/assets/vosk-tr app/src/main/assets/fonts
+          curl -fL --retry 3 -o /tmp/vosk.zip https://alphacephei.com/vosk/models/vosk-model-small-tr-0.3.zip
+          rm -rf /tmp/vosk && mkdir /tmp/vosk && unzip -q /tmp/vosk.zip -d /tmp/vosk
+          cp -r /tmp/vosk/*/* app/src/main/assets/vosk-tr/
+          du -sh app/src/main/assets/vosk-tr
+          curl -fL --retry 3 -o app/src/main/assets/fonts/Cinzel.ttf "https://github.com/google/fonts/raw/main/ofl/cinzel/Cinzel%5Bwght%5D.ttf" || echo "cinzel font download failed"
+          curl -fL --retry 3 -o app/src/main/assets/fonts/Inter.ttf "https://github.com/google/fonts/raw/main/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf" || echo "inter font download failed"
+          ls -la app/src/main/assets/fonts
+
       - name: Build APK
         run: gradle assembleRelease --no-daemon --stacktrace
 

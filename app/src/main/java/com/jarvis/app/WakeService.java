@@ -154,7 +154,7 @@ public class WakeService extends Service implements RecognitionListener {
         new Thread(() -> {
             try {
                 File dir = new File(getFilesDir(), "vosk-tr");
-                if (!new File(dir, "ready").exists()) download(dir);
+                if (!new File(dir, "ready").exists() && !copyFromAssets(dir)) download(dir);
                 state = "loading";
                 Model m = new Model(dir.getAbsolutePath());
                 main.post(() -> { model = m; error = ""; resumeListening(); });
@@ -211,6 +211,37 @@ public class WakeService extends Service implements RecognitionListener {
         }
         zip.delete();
         new File(dir, "ready").createNewFile();
+    }
+
+    /** The model ships inside the APK (assets/vosk-tr); copy it out once. */
+    private boolean copyFromAssets(File dir) {
+        try {
+            String[] top = getAssets().list("vosk-tr");
+            if (top == null || top.length == 0) return false;
+            state = "loading";
+            deleteRecursive(dir);
+            copyAssetDir("vosk-tr", dir);
+            new File(dir, "ready").createNewFile();
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private void copyAssetDir(String path, File out) throws Exception {
+        String[] kids = getAssets().list(path);
+        if (kids == null || kids.length == 0) {
+            File parent = out.getParentFile();
+            if (parent != null) parent.mkdirs();
+            try (InputStream in = getAssets().open(path); OutputStream os = new FileOutputStream(out)) {
+                byte[] buf = new byte[65536];
+                int n;
+                while ((n = in.read(buf)) > 0) os.write(buf, 0, n);
+            }
+            return;
+        }
+        out.mkdirs();
+        for (String k : kids) copyAssetDir(path + "/" + k, new File(out, k));
     }
 
     private static void deleteRecursive(File f) {
