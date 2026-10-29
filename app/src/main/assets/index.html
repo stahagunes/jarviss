@@ -207,6 +207,58 @@ body.tars .bar i{background:var(--warn);box-shadow:none}
   <label for="sCity">Varsayılan şehir (konum yoksa)</label>
   <input id="sCity" placeholder="İstanbul">
 
+  <label for="sEngine">Ses motoru</label>
+  <select id="sEngine">
+    <option value="device">Telefon sesi (ücretsiz)</option>
+    <option value="eleven">ElevenLabs (en doğal, insan gibi)</option>
+    <option value="openai">OpenAI (doğal, karaktere uygun)</option>
+  </select>
+
+  <div id="grpDevice">
+    <label for="sVoice">Telefon sesi</label>
+    <select id="sVoice"></select>
+    <label for="sPitch">Ses tonu</label>
+    <div class="rng"><input id="sPitch" type="range" min="0.6" max="1.4" step="0.05"><b id="sPitchV"></b></div>
+    <div class="hint">Liste boşsa ya da sesler kötüyse: aşağıdaki düğmeyle Google ses paketlerinden Türkçe'yi indir, "yüksek kalite" seç.</div>
+    <div class="row" style="margin-top:10px"><button class="pbtn ghost" id="sTtsSet">SES PAKETLERİ</button></div>
+  </div>
+
+  <div id="grpEleven">
+    <label for="sElKey">ElevenLabs API anahtarı</label>
+    <input id="sElKey" type="password" placeholder="sk_..." autocomplete="off">
+    <div class="hint">elevenlabs.io → Profile → API Keys. Ücretsiz plan ayda ~10 dakika konuşma verir.</div>
+    <label for="sElVoice">Ses</label>
+    <select id="sElVoice">
+      <option value="onwK4e9ZLuTAKqWW03F9">Daniel · derin, İngiliz tarzı (JARVIS için ideal)</option>
+      <option value="JBFqnCBsd6RMkjVDRZzb">George · sıcak, olgun</option>
+      <option value="nPczCjzI2devNBz1zQrb">Brian · derin, anlatıcı</option>
+      <option value="pqHfZKP75CvOlQylNhV4">Bill · yaşlı, güven veren</option>
+      <option value="pNInz6obpgDQGcFmaJgB">Adam · derin, net</option>
+      <option value="custom">Özel ses ID'si…</option>
+    </select>
+    <input id="sElCustom" placeholder="Voice ID" style="margin-top:8px;display:none">
+  </div>
+
+  <div id="grpOpenai">
+    <label for="sOaKey">OpenAI API anahtarı</label>
+    <input id="sOaKey" type="password" placeholder="sk-..." autocomplete="off">
+    <div class="hint">platform.openai.com → API keys. Kişiliğe göre konuşma tarzını da ayarlar (JARVIS kibar, TARS ifadesiz).</div>
+    <label for="sOaVoice">Ses</label>
+    <select id="sOaVoice">
+      <option value="onyx">Onyx · derin erkek</option>
+      <option value="ash">Ash · net erkek</option>
+      <option value="echo">Echo · sakin erkek</option>
+      <option value="fable">Fable · İngiliz tarzı</option>
+      <option value="sage">Sage · yumuşak</option>
+      <option value="verse">Verse · etkileyici</option>
+      <option value="alloy">Alloy · nötr</option>
+      <option value="coral">Coral · sıcak kadın</option>
+      <option value="nova">Nova · genç kadın</option>
+      <option value="shimmer">Shimmer · yumuşak kadın</option>
+    </select>
+  </div>
+  <div class="row" style="margin-top:12px"><button class="pbtn" id="sTest">▶ SESİ DENE</button></div>
+
   <label for="sRate">Konuşma hızı</label>
   <select id="sRate">
     <option value="0.85">Yavaş</option>
@@ -241,7 +293,7 @@ const store = {
   set(k, v){ try{ localStorage.setItem('jv_'+k, JSON.stringify(v)); }catch(e){} }
 };
 
-let cfg = Object.assign({ key:'', model:'claude-haiku-5-5', title:'efendim', city:'İstanbul', rate:'1', auto:'0', persona:'jarvis', humor:75, honesty:90 }, store.get('cfg', {}));
+let cfg = Object.assign({ key:'', model:'claude-haiku-5-5', title:'efendim', city:'İstanbul', rate:'1', auto:'0', persona:'jarvis', humor:75, honesty:90, engine:'device', voice:'', pitch:'1', elKey:'', elVoice:'onwK4e9ZLuTAKqWW03F9', oaKey:'', oaVoice:'onyx' }, store.get('cfg', {}));
 const isTars = () => cfg.persona === 'tars';
 const pname = () => isTars() ? 'TARS' : 'JARVIS';
 function applyPersona(){
@@ -269,12 +321,45 @@ function setState(s, label){
   $('status').textContent = label || ({idle:'Hazır', listening:'Dinliyorum', thinking:'İşleniyor', speaking:'Konuşuyor'}[s] || '');
   $('mic').classList.toggle('on', s==='listening');
 }
-function speak(text){
-  if(!text) return;
-  const clean = text.replace(/[*#_`>|]/g,'').replace(/\s+/g,' ').trim();
-  if(A) A.speak(clean, parseFloat(cfg.rate)||1, isTars() ? 0.72 : 0.92);
+let lastSpoken = '';
+function deviceSpeak(clean, c){
+  if(A){ A.setVoice(c.voice||''); A.speak(clean, parseFloat(c.rate)||1, parseFloat(c.pitch)||1); }
   else if('speechSynthesis' in window){ const u=new SpeechSynthesisUtterance(clean); u.lang='tr-TR'; speechSynthesis.speak(u); }
 }
+function speak(text, c){
+  c = c || cfg;
+  if(!text) return;
+  const clean = text.replace(/[*#_`>|⟡]/g,'').replace(/\s+/g,' ').trim();
+  lastSpoken = clean;
+  const tars = c.persona === 'tars';
+  if(A && c.engine === 'eleven' && c.elKey){
+    const vid = c.elVoice || 'onwK4e9ZLuTAKqWW03F9';
+    A.cloudSpeak('https://api.elevenlabs.io/v1/text-to-speech/'+encodeURIComponent(vid)+'?output_format=mp3_44100_128',
+      JSON.stringify({'xi-api-key':c.elKey, 'content-type':'application/json', 'accept':'audio/mpeg'}),
+      JSON.stringify({text:clean, model_id:'eleven_multilingual_v2', language_code:'tr',
+        voice_settings:{stability: tars?0.8:0.45, similarity_boost:0.8, style: tars?0:0.3, speed: Math.min(1.2, Math.max(0.7, parseFloat(c.rate)||1))}}));
+    return;
+  }
+  if(A && c.engine === 'openai' && c.oaKey){
+    A.cloudSpeak('https://api.openai.com/v1/audio/speech',
+      JSON.stringify({'authorization':'Bearer '+c.oaKey, 'content-type':'application/json'}),
+      JSON.stringify({model:'gpt-4o-mini-tts', voice:c.oaVoice||'onyx', input:clean, response_format:'mp3',
+        speed: parseFloat(c.rate)||1,
+        instructions: tars
+          ? 'Türkçe konuş. Kuru, ifadesiz, düz tonlu bir robot asistan gibi; esprileri tamamen ciddi bir yüzle yap. Hafif mekanik ama net ve anlaşılır.'
+          : 'Türkçe konuş. Sakin, kibar, zarif ve ince esprili bir İngiliz uşağı yapay zekâ gibi; akıcı, güven veren, hafif gülümseyen bir tonla.'}));
+    return;
+  }
+  deviceSpeak(clean, c);
+}
+window.onCloudTtsError = (status, msg) => {
+  let m = '';
+  try{ const j = JSON.parse(msg); m = (j.detail && (j.detail.message||j.detail.status)) || (j.error && j.error.message) || ''; }catch(e){ m = String(msg||''); }
+  if(status===401) m = 'API anahtarı geçersiz';
+  if(status===429) m = 'kota/limit doldu';
+  addMsg('Ses servisi hatası'+(status?' ('+status+')':'')+': '+String(m).slice(0,120)+' · telefon sesi kullanıldı', 'sys');
+  deviceSpeak(lastSpoken, cfg);
+};
 function say(text, opts={}){
   addMsg(text, opts.err ? 'ai err' : 'ai');
   if(!opts.silent) speak(text);
@@ -568,9 +653,46 @@ function listen(){
 function openSettings(){
   $('sKey').value = cfg.key; $('sModel').value = cfg.model; $('sTitle').value = cfg.title;
   $('sCity').value = cfg.city; $('sRate').value = cfg.rate; $('sAuto').value = cfg.auto;
+  $('sEngine').value = cfg.engine; $('sPitch').value = cfg.pitch; $('sElKey').value = cfg.elKey; $('sOaKey').value = cfg.oaKey;
+  $('sOaVoice').value = cfg.oaVoice;
+  const preset = [...$('sElVoice').options].some(o => o.value === cfg.elVoice);
+  $('sElVoice').value = preset ? cfg.elVoice : 'custom'; $('sElCustom').value = preset ? '' : cfg.elVoice;
+  fillVoices(); $('sVoice').value = cfg.voice; showEngine();
   $('sPersona').value = cfg.persona; $('sHumor').value = cfg.humor; $('sHonesty').value = cfg.honesty; showRng();
   $('settings').classList.add('open');
 }
+function fillVoices(){
+  const sel = $('sVoice'); sel.innerHTML = '';
+  const add = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o); };
+  add('', 'Otomatik (en kaliteli Türkçe ses)');
+  let list = []; try{ list = JSON.parse(A ? A.voices() : '[]'); }catch(e){}
+  list.sort((a,b) => (b.installed-a.installed) || (b.quality-a.quality) || a.name.localeCompare(b.name));
+  list.forEach((v,i) => {
+    const q = v.quality >= 500 ? 'çok yüksek kalite' : v.quality >= 400 ? 'yüksek kalite' : 'normal';
+    add(v.name, `Ses ${i+1} · ${q}${v.network?' · internet':''}${v.installed?'':' · indirilmemiş'}  (${v.name})`);
+  });
+}
+function showEngine(){
+  const e = $('sEngine').value;
+  $('grpDevice').style.display = e==='device' ? '' : 'none';
+  $('grpEleven').style.display = e==='eleven' ? '' : 'none';
+  $('grpOpenai').style.display = e==='openai' ? '' : 'none';
+  $('sElCustom').style.display = $('sElVoice').value==='custom' ? '' : 'none';
+  $('sPitchV').textContent = (+$('sPitch').value).toFixed(2);
+}
+function formCfg(){
+  return { engine:$('sEngine').value, voice:$('sVoice').value, pitch:$('sPitch').value,
+    elKey:$('sElKey').value.trim(), elVoice: $('sElVoice').value==='custom' ? $('sElCustom').value.trim() : $('sElVoice').value,
+    oaKey:$('sOaKey').value.trim(), oaVoice:$('sOaVoice').value };
+}
+$('sEngine').onchange = showEngine; $('sElVoice').onchange = showEngine; $('sPitch').oninput = showEngine;
+$('sTtsSet').onclick = () => { A && A.openSettings('tts'); };
+$('sTest').onclick = () => {
+  const c = Object.assign({}, cfg, formCfg(), {persona:$('sPersona').value, rate:$('sRate').value});
+  if(c.engine==='eleven' && !c.elKey){ addMsg('Önce ElevenLabs anahtarını gir.', 'sys'); return; }
+  if(c.engine==='openai' && !c.oaKey){ addMsg('Önce OpenAI anahtarını gir.', 'sys'); return; }
+  speak(c.persona==='tars' ? 'TARS çevrimiçi. Mizah ayarım yüzde yetmiş beş. Bu sesi beğendiysen kaydet.' : 'Merhaba efendim. Bu ses sizin için uygun mu? Beğendiyseniz kaydedebilirsiniz.', c);
+};
 function showRng(){ $('sHumorV').textContent = $('sHumor').value+'%'; $('sHonestyV').textContent = $('sHonesty').value+'%'; }
 $('sHumor').oninput = showRng; $('sHonesty').oninput = showRng;
 function closeSettings(){ $('settings').classList.remove('open'); }
@@ -580,7 +702,7 @@ $('sSave').onclick = () => {
   const before = cfg.persona;
   Object.assign(cfg, { key:$('sKey').value.trim(), model:$('sModel').value, title:$('sTitle').value.trim()||'efendim',
           city:$('sCity').value.trim()||'İstanbul', rate:$('sRate').value, auto:$('sAuto').value,
-          persona:$('sPersona').value, humor:+$('sHumor').value, honesty:+$('sHonesty').value });
+          persona:$('sPersona').value, humor:+$('sHumor').value, honesty:+$('sHonesty').value }, formCfg());
   saveCfg(); closeSettings();
   addMsg(cfg.key ? 'Yapay zekâ modu etkin.' : 'Temel mod etkin.', 'sys');
   if(before !== cfg.persona) say(isTars() ? 'TARS çevrimiçi. Mizah ayarı yüzde '+cfg.humor+'.' : 'JARVIS hizmetinizde, '+cfg.title+'.');

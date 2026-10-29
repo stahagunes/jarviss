@@ -17,7 +17,9 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.location.Location;
 import android.location.LocationManager;
+import android.media.AudioAttributes;
 import android.media.AudioManager;
+import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.BatteryManager;
 import android.os.Build;
@@ -33,6 +35,7 @@ import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
+import android.speech.tts.Voice;
 import android.view.KeyEvent;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
@@ -41,7 +44,11 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
+
+import java.io.File;
+import java.io.FileOutputStream;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -66,7 +73,9 @@ public class MainActivity extends Activity {
     private boolean ttsReady = false;
     private String pendingSpeech = null;
     private float speechRate = 1.0f;
-    private float speechPitch = 0.92f;
+    private float speechPitch = 1.0f;
+    private String voiceName = "";
+    private MediaPlayer player;
     private SpeechRecognizer recognizer;
     private final Handler main = new Handler(Looper.getMainLooper());
     private boolean torchOn = false;
@@ -99,6 +108,7 @@ public class MainActivity extends Activity {
                 if (r == TextToSpeech.LANG_MISSING_DATA || r == TextToSpeech.LANG_NOT_SUPPORTED) {
                     tts.setLanguage(Locale.getDefault());
                 }
+                pickBestVoice();
                 tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                     @Override public void onStart(String id) { js("window.onSpeakState && onSpeakState(true)"); }
                     @Override public void onDone(String id) { js("window.onSpeakState && onSpeakState(false)"); }
@@ -149,7 +159,38 @@ public class MainActivity extends Activity {
 
     // ---------------- Speech ----------------
 
+    private void pickBestVoice() {
+        try {
+            Voice best = null;
+            for (Voice v : tts.getVoices()) {
+                if (!"tr".equals(v.getLocale().getLanguage())) continue;
+                if (v.getFeatures() != null && v.getFeatures().contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED)) continue;
+                if (best == null || v.getQuality() > best.getQuality()) best = v;
+            }
+            if (best != null) tts.setVoice(best);
+        } catch (Exception ignored) { }
+    }
+
+    private void applyVoice() {
+        if (voiceName == null || voiceName.isEmpty()) return;
+        try {
+            for (Voice v : tts.getVoices()) {
+                if (v.getName().equals(voiceName)) { tts.setVoice(v); return; }
+            }
+        } catch (Exception ignored) { }
+    }
+
+    private void stopPlayer() {
+        if (player != null) {
+            try { player.stop(); } catch (Exception ignored) { }
+            player.release();
+            player = null;
+        }
+    }
+
     private void speakNow(String text) {
+        stopPlayer();
+        applyVoice();
         tts.setSpeechRate(speechRate);
         tts.setPitch(speechPitch);
         Bundle params = new Bundle();
@@ -266,7 +307,88 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
-        public void stopSpeaking() { if (tts != null) tts.stop(); }
+        public void stopSpeaking() {
+            if (tts != null) tts.stop();
+            main.post(MainActivity.this::stopPlayer);
+        }
+
+        @JavascriptInterface
+        public void setVoice(String name) { voiceName = name == null ? "" : name; }
+
+        @JavascriptInterface
+        public String voices() {
+            JSONArray arr = new JSONArray();
+            if (!ttsReady) return "[]";
+            try {
+                for (Voice v : tts.getVoices()) {
+                    if (!"tr".equals(v.getLocale().getLanguage())) continue;
+                    JSONObject o = new JSONObject();
+                    o.put("name", v.getName());
+                    o.put("quality", v.getQuality());
+                    o.put("network", v.isNetworkConnectionRequired());
+                    o.put("installed", v.getFeatures() == null || !v.getFeatures().contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED));
+                    arr.put(o);
+                }
+            } catch (Exception ignored) { }
+            return arr.toString();
+        }
+
+        /** Downloads speech audio from a cloud TTS API and plays it. */
+        @JavascriptInterface
+        public void cloudSpeak(final String url, final String headersJson, final String body) {
+            new Thread(() -> {
+                HttpURLConnection con = null;
+                try {
+                    con = (HttpURLConnection) new URL(url).openConnection();
+                    con.setRequestMethod("POST");
+                    con.setConnectTimeout(15000);
+                    con.setReadTimeout(60000);
+                    JSONObject h = new JSONObject(headersJson);
+                    Iterator<String> keys = h.keys();
+                    while (keys.hasNext()) { String k = keys.next(); con.setRequestProperty(k, h.getString(k)); }
+                    con.setDoOutput(true);
+                    try (OutputStream os = con.getOutputStream()) { os.write(body.getBytes(StandardCharsets.UTF_8)); }
+                    int status = con.getResponseCode();
+                    if (status >= 400) {
+                        StringBuilder sb = new StringBuilder();
+                        InputStream es = con.getErrorStream();
+                        if (es != null) {
+                            try (BufferedReader br = new BufferedReader(new InputStreamReader(es, StandardCharsets.UTF_8))) {
+                                String line; while ((line = br.readLine()) != null) sb.append(line);
+                            }
+                        }
+                        js("onCloudTtsError(" + status + "," + q(sb.toString()) + ")");
+                        return;
+                    }
+                    final File f = new File(getCacheDir(), "speech_" + SystemClock.uptimeMillis() + ".mp3");
+                    try (InputStream is = con.getInputStream(); FileOutputStream fo = new FileOutputStream(f)) {
+                        byte[] buf = new byte[16384]; int n;
+                        while ((n = is.read(buf)) > 0) fo.write(buf, 0, n);
+                    }
+                    main.post(() -> {
+                        try {
+                            stopPlayer();
+                            if (tts != null) tts.stop();
+                            player = new MediaPlayer();
+                            player.setAudioAttributes(new AudioAttributes.Builder()
+                                    .setUsage(AudioAttributes.USAGE_ASSISTANT)
+                                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+                            player.setDataSource(f.getAbsolutePath());
+                            player.setOnPreparedListener(mp -> { mp.start(); js("onSpeakState(true)"); });
+                            player.setOnCompletionListener(mp -> { js("onSpeakState(false)"); stopPlayer(); f.delete(); });
+                            player.setOnErrorListener((mp, w, e) -> { js("onCloudTtsError(0,'oynatma hatası')"); stopPlayer(); f.delete(); return true; });
+                            player.prepareAsync();
+                        } catch (Exception e) {
+                            js("onCloudTtsError(0," + q(e.getMessage()) + ")");
+                        }
+                    });
+                } catch (Exception e) {
+                    js("onCloudTtsError(0," + q("Bağlantı hatası: " + e.getMessage()) + ")");
+                } finally {
+                    if (con != null) con.disconnect();
+                }
+            }).start();
+        }
 
         @JavascriptInterface
         public void http(final String id, final String method, final String url, final String headersJson, final String body) {
@@ -457,6 +579,7 @@ public class MainActivity extends Activity {
                 case "sound": action = Settings.ACTION_SOUND_SETTINGS; break;
                 case "location": action = Settings.ACTION_LOCATION_SOURCE_SETTINGS; break;
                 case "battery": action = Intent.ACTION_POWER_USAGE_SUMMARY; break;
+                case "tts": action = "com.android.settings.TTS_SETTINGS"; break;
                 case "app": {
                     Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()));
                     return launch(i) ? "Uygulama ayarları açıldı" : "Ayarlar açılamadı";
@@ -526,6 +649,7 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         if (recognizer != null) recognizer.destroy();
         if (tts != null) tts.shutdown();
+        stopPlayer();
         super.onDestroy();
     }
 
