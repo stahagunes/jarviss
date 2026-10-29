@@ -486,6 +486,42 @@ public class MainActivity extends Activity {
             }).start();
         }
 
+        /** Google Cloud TTS: JSON response with base64 MP3 in "audioContent". */
+        @JavascriptInterface
+        public void googleSpeak(final String url, final String headersJson, final String body) {
+            new Thread(() -> {
+                HttpURLConnection con = null;
+                try {
+                    con = (HttpURLConnection) new URL(url).openConnection();
+                    con.setRequestMethod("POST");
+                    con.setConnectTimeout(15000);
+                    con.setReadTimeout(60000);
+                    JSONObject h = new JSONObject(headersJson);
+                    Iterator<String> keys = h.keys();
+                    while (keys.hasNext()) { String k = keys.next(); con.setRequestProperty(k, h.getString(k)); }
+                    con.setDoOutput(true);
+                    try (OutputStream os = con.getOutputStream()) { os.write(body.getBytes(StandardCharsets.UTF_8)); }
+                    int status = con.getResponseCode();
+                    InputStream is = status >= 400 ? con.getErrorStream() : con.getInputStream();
+                    StringBuilder sb = new StringBuilder();
+                    if (is != null) {
+                        try (BufferedReader br = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+                            String line; while ((line = br.readLine()) != null) sb.append(line);
+                        }
+                    }
+                    if (status >= 400) { js("onCloudTtsError(" + status + "," + q(sb.toString()) + ")"); return; }
+                    byte[] mp3 = Base64.decode(new JSONObject(sb.toString()).getString("audioContent"), Base64.DEFAULT);
+                    File f = new File(getCacheDir(), "speech_" + SystemClock.uptimeMillis() + ".mp3");
+                    try (FileOutputStream fo = new FileOutputStream(f)) { fo.write(mp3); }
+                    playFile(f);
+                } catch (Exception e) {
+                    js("onCloudTtsError(0," + q("Google ses hatası: " + e.getMessage()) + ")");
+                } finally {
+                    if (con != null) con.disconnect();
+                }
+            }).start();
+        }
+
         /** Downloads speech audio from a cloud TTS API and plays it. */
         @JavascriptInterface
         public void cloudSpeak(final String url, final String headersJson, final String body) {

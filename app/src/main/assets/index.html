@@ -235,7 +235,7 @@ svg{display:block}
           <div class="btnrow"><button class="pb ghost" id="sFetchModels">Modelleri getir</button><button class="pb" id="sTestAi">Bağlantıyı dene</button></div>
         </div>
         <div class="field"><label for="sKey" id="sKeyLabel">Claude API anahtarı</label><input type="password" id="sKey" placeholder="sk-ant-..." autocomplete="off">
-          <div class="hint">console.anthropic.com → Billing'den kredi yükle → API Keys → Create Key. Anahtarsız da temel komutlar çalışır. Anahtar sadece bu telefonda saklanır.</div></div>
+          <div class="hint" id="sKeyHint">console.anthropic.com → Billing'den kredi yükle → API Keys → Create Key. Anahtarsız da temel komutlar çalışır. Anahtar sadece bu telefonda saklanır.</div></div>
         <div class="field" id="grpModel"><label for="sModel">Model</label>
           <select id="sModel">
             <option value="claude-haiku-5-5">Claude Haiku 5.5 · hızlı, en ucuz</option>
@@ -250,12 +250,33 @@ svg{display:block}
       <div class="card">
         <div class="field"><label for="sEngine">Ses motoru</label>
           <select id="sEngine">
-            <option value="gemini">Google Gemini · ücretsiz, çok gerçekçi</option>
+            <option value="gcloud">Google Cloud · ayda 1M karakter ücretsiz, çok gerçekçi</option>
+            <option value="gemini">Google Gemini · ücretsiz kota düşük</option>
             <option value="azure">Microsoft Azure · ücretsiz kota</option>
             <option value="device">Telefon sesi · internetsiz</option>
             <option value="eleven">ElevenLabs</option>
             <option value="openai">OpenAI</option>
           </select></div>
+
+        <div id="grpGcloud">
+          <div class="field"><label for="sGcKey">Google Cloud API anahtarı</label><input type="password" id="sGcKey" placeholder="AIza..." autocomplete="off">
+            <div class="hint">console.cloud.google.com → <b>Cloud Text-to-Speech API</b>'yi etkinleştir → API ve Hizmetler → Kimlik bilgileri → <b>API anahtarı oluştur</b>. Faturalandırma hesabı istenir ama Chirp 3 HD seslerinde ayda 1 milyon karakter ücretsizdir.</div></div>
+          <div class="field"><label for="sGcVoice">Ses</label>
+            <select id="sGcVoice">
+              <option value="tr-TR-Chirp3-HD-Charon">Charon · derin erkek (Chirp 3 HD)</option>
+              <option value="tr-TR-Chirp3-HD-Orus">Orus · kararlı erkek (Chirp 3 HD)</option>
+              <option value="tr-TR-Chirp3-HD-Algenib">Algenib · kalın erkek (Chirp 3 HD)</option>
+              <option value="tr-TR-Chirp3-HD-Iapetus">Iapetus · net erkek (Chirp 3 HD)</option>
+              <option value="tr-TR-Chirp3-HD-Fenrir">Fenrir · enerjik erkek (Chirp 3 HD)</option>
+              <option value="tr-TR-Chirp3-HD-Kore">Kore · kadın (Chirp 3 HD)</option>
+              <option value="tr-TR-Chirp3-HD-Aoede">Aoede · kadın (Chirp 3 HD)</option>
+              <option value="tr-TR-Wavenet-B">WaveNet B · erkek (4M ücretsiz)</option>
+              <option value="tr-TR-Wavenet-E">WaveNet E · erkek (4M ücretsiz)</option>
+              <option value="tr-TR-Wavenet-A">WaveNet A · kadın (4M ücretsiz)</option>
+            </select>
+            <div class="hint" id="gcHint">"Sesleri getir" ile hesabındaki tüm Türkçe sesleri listeleyebilirsin.</div></div>
+          <div class="btnrow"><button class="pb ghost" id="sGcList">Sesleri getir</button></div>
+        </div>
 
         <div id="grpGemini">
           <div class="field"><label for="sGmKey">Gemini API anahtarı</label><input type="password" id="sGmKey" placeholder="AIza..." autocomplete="off">
@@ -335,7 +356,7 @@ svg{display:block}
       <div class="card">
         <div class="btnrow"><button class="pb red" id="sClear">Sohbeti sil</button><button class="pb red" id="sNotes">Notları sil</button></div>
       </div>
-      <div class="hint" style="margin:10px 4px 0;text-align:center">ZEUS 2.1 · Ayarlar otomatik kaydedilir</div>
+      <div class="hint" style="margin:10px 4px 0;text-align:center">ZEUS 2.2 · Ayarlar otomatik kaydedilir</div>
     </div>
 
   </div>
@@ -357,7 +378,7 @@ let cfg = Object.assign({
   key:'', model:'claude-haiku-5-5', provider:'anthropic', baseUrl:'https://api.llmsrelay.com', customModel:'', title:'efendim', city:'İstanbul', rate:'1', auto:'0',
   persona:'jarvis', humor:75, honesty:90,
   engine:'device', voice:'', pitch:'1',
-  gmKey:'', gmVoice:'Charon', gmModel:'gemini-3.1-flash-tts-preview',
+  gcKey:'', gcVoice:'tr-TR-Chirp3-HD-Charon', gmKey:'', gmVoice:'Charon', gmModel:'gemini-3.1-flash-tts-preview',
   azKey:'', azRegion:'westeurope', azVoice:'tr-TR-AhmetNeural',
   elKey:'', elVoice:'onwK4e9ZLuTAKqWW03F9', oaKey:'', oaVoice:'onyx'
 }, store.get('cfg', {}));
@@ -394,7 +415,7 @@ function setState(s, label){
 function vib(ms){ try{ A && A.vibrate(ms); }catch(e){} }
 
 /* ================= speech output ================= */
-let lastSpoken = '';
+let lastSpoken = '', warnedNoKey = false;
 function deviceSpeak(clean, c){
   if(A){ A.setVoice(c.voice||''); A.speak(clean, parseFloat(c.rate)||1, parseFloat(c.pitch)||1); }
   else if('speechSynthesis' in window){ const u = new SpeechSynthesisUtterance(clean); u.lang='tr-TR'; speechSynthesis.speak(u); }
@@ -405,6 +426,18 @@ function speak(text, c){
   const clean = text.replace(/[*#_`>|]/g,'').replace(/\s+/g,' ').trim();
   lastSpoken = clean;
   const tars = c.persona === 'tars';
+  if(A && c.engine === 'gcloud' && c.gcKey){
+    const v = c.gcVoice || 'tr-TR-Chirp3-HD-Charon';
+    A.googleSpeak('https://texttospeech.googleapis.com/v1/text:synthesize',
+      JSON.stringify({'x-goog-api-key':c.gcKey, 'content-type':'application/json'}),
+      JSON.stringify({input:{text:clean}, voice:{languageCode:v.slice(0,5), name:v},
+        audioConfig:{audioEncoding:'MP3', speakingRate: parseFloat(c.rate)||1}}));
+    return;
+  }
+  if(A && c.engine !== 'device' && !c[{gcloud:'gcKey',gemini:'gmKey',azure:'azKey',eleven:'elKey',openai:'oaKey'}[c.engine]] && !warnedNoKey){
+    warnedNoKey = true;
+    addNote('Seçili ses motorunun API anahtarı girilmemiş, şimdilik telefon sesi kullanılıyor.');
+  }
   if(A && c.engine === 'gemini' && c.gmKey){
     const style = tars
       ? 'Aşağıdaki Türkçe metni kuru, ifadesiz, düz ve hafif robotik bir tonla, esprileri tamamen ciddi bir yüzle seslendir'
@@ -445,6 +478,9 @@ window.onCloudTtsError = (status, msg) => {
   if(status===401 || status===403) m = 'API anahtarı geçersiz';
   if(status===429) m = 'ücretsiz kota doldu';
   if(status===404 && cfg.engine==='gemini') m = 'ses modeli bulunamadı, ayarlardan diğer modeli seç';
+  if(cfg.engine==='gcloud' && /not been used|disabled/i.test(String(msg))) m = 'Cloud Text-to-Speech API projede etkin değil';
+  if(cfg.engine==='gcloud' && /billing/i.test(String(msg))) m = 'Google Cloud projesinde faturalandırma açılmamış';
+  if(cfg.engine==='gcloud' && /voice|name/i.test(String(msg)) && status===400) m = 'bu ses bulunamadı, ayarlardan "Sesleri getir" ile başka ses seç';
   addNote('Ses servisi: '+String(m||'hata').slice(0,100)+' · telefon sesi kullanıldı');
   deviceSpeak(lastSpoken, cfg);
 };
@@ -847,13 +883,14 @@ function fillVoices(){
 }
 function showEngine(){
   const e = $('sEngine').value;
-  ['Gemini','Azure','Device','Eleven','Openai'].forEach(g => $('grp'+g).classList.toggle('hide', e !== g.toLowerCase()));
+  ['Gcloud','Gemini','Azure','Device','Eleven','Openai'].forEach(g => $('grp'+g).classList.toggle('hide', e !== g.toLowerCase()));
   $('sElCustom').classList.toggle('hide', $('sElVoice').value !== 'custom');
   const custom = $('sProvider').value === 'custom';
   $('grpCustom').classList.toggle('hide', !custom);
   $('grpModel').classList.toggle('hide', custom);
   $('sKeyLabel').textContent = custom ? 'API anahtarı (servisin panelinden)' : 'Claude API anahtarı';
   $('sKey').placeholder = custom ? 'sk-...' : 'sk-ant-...';
+  $('sKeyHint').textContent = custom ? 'Servisin panelinden aldığın anahtar. Anahtar sadece bu telefonda saklanır.' : "console.anthropic.com → Billing'den kredi yükle → API Keys → Create Key. Anahtarsız da temel komutlar çalışır. Anahtar sadece bu telefonda saklanır.";
   $('sPitchV').textContent = (+$('sPitch').value).toFixed(2);
   $('sHumorV').textContent = $('sHumor').value+'%';
   $('sHonestyV').textContent = $('sHonesty').value+'%';
@@ -864,7 +901,7 @@ function formCfg(){
     humor:+$('sHumor').value, honesty:+$('sHonesty').value, auto:$('sAuto').checked ? '1' : '0',
     key:$('sKey').value.trim(), model:$('sModel').value, provider:$('sProvider').value, baseUrl:$('sBase').value.trim()||'https://api.llmsrelay.com', customModel:$('sCustomModel').value.trim(),
     engine:$('sEngine').value, voice:$('sVoice').value, pitch:$('sPitch').value, rate:$('sRate').value,
-    gmKey:$('sGmKey').value.trim(), gmVoice:$('sGmVoice').value, gmModel:$('sGmModel').value,
+    gcKey:$('sGcKey').value.trim(), gcVoice:$('sGcVoice').value, gmKey:$('sGmKey').value.trim(), gmVoice:$('sGmVoice').value, gmModel:$('sGmModel').value,
     azKey:$('sAzKey').value.trim(), azRegion:$('sAzRegion').value.trim()||'westeurope', azVoice:$('sAzVoice').value,
     elKey:$('sElKey').value.trim(), elVoice: $('sElVoice').value==='custom' ? $('sElCustom').value.trim() : $('sElVoice').value,
     oaKey:$('sOaKey').value.trim(), oaVoice:$('sOaVoice').value
@@ -878,6 +915,9 @@ function openSheet(){
   $('sAuto').checked = cfg.auto === '1';
   set('sKey', cfg.key); set('sModel', cfg.model); set('sProvider', cfg.provider); set('sBase', cfg.baseUrl); set('sCustomModel', cfg.customModel);
   set('sEngine', cfg.engine); fillVoices(); set('sVoice', cfg.voice); set('sPitch', cfg.pitch); set('sRate', cfg.rate);
+  set('sGcKey', cfg.gcKey);
+  if(![...$('sGcVoice').options].some(o => o.value === cfg.gcVoice)){ const o = document.createElement('option'); o.value = o.textContent = cfg.gcVoice; $('sGcVoice').appendChild(o); }
+  set('sGcVoice', cfg.gcVoice);
   set('sGmKey', cfg.gmKey); set('sGmVoice', cfg.gmVoice); set('sGmModel', cfg.gmModel);
   set('sAzKey', cfg.azKey); set('sAzRegion', cfg.azRegion); set('sAzVoice', cfg.azVoice);
   set('sElKey', cfg.elKey); set('sOaKey', cfg.oaKey); set('sOaVoice', cfg.oaVoice);
@@ -906,7 +946,7 @@ $('appInfo').onclick = () => call('openPerm', 'appinfo');
 $('sTtsSet').onclick = () => call('openSettings', 'tts');
 $('sTest').onclick = () => {
   const c = Object.assign({}, cfg, formCfg());
-  const need = {gemini:'gmKey', azure:'azKey', eleven:'elKey', openai:'oaKey'}[c.engine];
+  const need = {gcloud:'gcKey', gemini:'gmKey', azure:'azKey', eleven:'elKey', openai:'oaKey'}[c.engine];
   if(need && !c[need]){ addNote('Önce bu ses motorunun API anahtarını gir.'); return; }
   speak(c.persona==='tars' ? 'TARS çevrimiçi. Mizah ayarım yüzde yetmiş beş. Bu ses iş görür.' : 'Merhaba, ben ZEUS. Bu sesle konuşmamı ister misin?', c);
 };
@@ -940,6 +980,27 @@ $('sTestAi').onclick = async () => {
   } else {
     $('modelsHint').textContent = apiError(r.status, (j && j.error && j.error.message) || String(r.body||'').slice(0,80));
   }
+};
+$('sGcList').onclick = async () => {
+  const key = $('sGcKey').value.trim();
+  if(!key){ $('gcHint').textContent = 'Önce API anahtarını gir.'; return; }
+  $('gcHint').textContent = 'Sesler alınıyor…';
+  const r = await http('GET', 'https://texttospeech.googleapis.com/v1/voices?languageCode=tr-TR', {'x-goog-api-key':key}, '');
+  let list = []; let err = '';
+  try{ const j = JSON.parse(r.body); list = j.voices || []; err = j.error ? j.error.message : ''; }catch(e){}
+  if(r.status !== 200 || !list.length){ $('gcHint').textContent = 'Alınamadı ('+r.status+'): '+(err||'bilinmiyor').slice(0,140); return; }
+  const rank = n => /Chirp3-HD/.test(n) ? 0 : /Chirp/.test(n) ? 1 : /Neural2/.test(n) ? 2 : /Wavenet/.test(n) ? 3 : 4;
+  list.sort((a,b) => rank(a.name)-rank(b.name) || a.name.localeCompare(b.name));
+  const sel = $('sGcVoice'), cur = sel.value; sel.innerHTML = '';
+  list.forEach(v => {
+    const o = document.createElement('option'); o.value = v.name;
+    const g = v.ssmlGender==='MALE' ? 'erkek' : v.ssmlGender==='FEMALE' ? 'kadın' : '';
+    o.textContent = v.name.replace('tr-TR-','') + (g?' · '+g:'');
+    sel.appendChild(o);
+  });
+  sel.value = list.some(v => v.name===cur) ? cur : list[0].name;
+  $('gcHint').textContent = list.length+' Türkçe ses bulundu. En gerçekçileri Chirp3-HD olanlar.';
+  liveSave();
 };
 $('sClear').onclick = () => { history = []; store.set('history', []); log.innerHTML = ''; addNote('Sohbet geçmişi silindi.'); };
 $('sNotes').onclick = () => { store.set('notes', []); addNote('Notlar silindi.'); };
