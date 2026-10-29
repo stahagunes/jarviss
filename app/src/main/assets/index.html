@@ -221,9 +221,22 @@ svg{display:block}
     <div class="sec">
       <h3>Yapay zekâ</h3>
       <div class="card">
-        <div class="field"><label for="sKey">Claude API anahtarı</label><input type="password" id="sKey" placeholder="sk-ant-..." autocomplete="off">
+        <div class="field"><label for="sProvider">Bağlantı</label>
+          <select id="sProvider">
+            <option value="anthropic">Anthropic · resmi Claude API</option>
+            <option value="custom">Özel adres · LLMsRelay vb.</option>
+          </select></div>
+        <div id="grpCustom">
+          <div class="field"><label for="sBase">API adresi</label><input type="text" id="sBase" placeholder="https://api.llmsrelay.com">
+            <div class="hint">Anthropic uyumlu adres; sonuna /v1 yazmana gerek yok. Not: Aracı servisler isteklerini (ekran içeriği, bildirimler dahil) görebilir.</div></div>
+          <div class="field"><label for="sCustomModel">Model ID</label><input type="text" id="sCustomModel" placeholder="claude-opus-5-5" list="modelList" autocomplete="off">
+            <datalist id="modelList"></datalist>
+            <div class="hint" id="modelsHint">Anahtarını girdikten sonra "Modelleri getir" ile erişebildiğin modelleri listele.</div></div>
+          <div class="btnrow"><button class="pb ghost" id="sFetchModels">Modelleri getir</button><button class="pb" id="sTestAi">Bağlantıyı dene</button></div>
+        </div>
+        <div class="field"><label for="sKey" id="sKeyLabel">Claude API anahtarı</label><input type="password" id="sKey" placeholder="sk-ant-..." autocomplete="off">
           <div class="hint">console.anthropic.com → Billing'den kredi yükle → API Keys → Create Key. Anahtarsız da temel komutlar çalışır. Anahtar sadece bu telefonda saklanır.</div></div>
-        <div class="field"><label for="sModel">Model</label>
+        <div class="field" id="grpModel"><label for="sModel">Model</label>
           <select id="sModel">
             <option value="claude-haiku-5-5">Claude Haiku 5.5 · hızlı, en ucuz</option>
             <option value="claude-sonnet-5-5">Claude Sonnet 5.5 · dengeli</option>
@@ -322,7 +335,7 @@ svg{display:block}
       <div class="card">
         <div class="btnrow"><button class="pb red" id="sClear">Sohbeti sil</button><button class="pb red" id="sNotes">Notları sil</button></div>
       </div>
-      <div class="hint" style="margin:10px 4px 0;text-align:center">ZEUS 2.0 · Ayarlar otomatik kaydedilir</div>
+      <div class="hint" style="margin:10px 4px 0;text-align:center">ZEUS 2.1 · Ayarlar otomatik kaydedilir</div>
     </div>
 
   </div>
@@ -341,7 +354,7 @@ const call = (fn, ...a) => { try{ return A && A[fn] ? A[fn](...a) : 'Bu işlem s
 
 /* ================= config ================= */
 let cfg = Object.assign({
-  key:'', model:'claude-haiku-5-5', title:'efendim', city:'İstanbul', rate:'1', auto:'0',
+  key:'', model:'claude-haiku-5-5', provider:'anthropic', baseUrl:'https://api.llmsrelay.com', customModel:'', title:'efendim', city:'İstanbul', rate:'1', auto:'0',
   persona:'jarvis', humor:75, honesty:90,
   engine:'device', voice:'', pitch:'1',
   gmKey:'', gmVoice:'Charon', gmModel:'gemini-3.1-flash-tts-preview',
@@ -625,23 +638,37 @@ function trimHistory(h){
   return out;
 }
 const TOOL_NAMES = {get_time:'Saat',get_weather:'Hava durumu',battery_status:'Pil',flashlight:'Fener',open_app:'Uygulama',set_alarm:'Alarm',set_timer:'Zamanlayıcı',set_reminder:'Hatırlatma',call_contact:'Arama',send_sms:'SMS',send_whatsapp:'WhatsApp',read_notifications:'Bildirimler',volume:'Ses',ringer_mode:'Zil modu',do_not_disturb:'Rahatsız etmeyin',brightness:'Parlaklık',media:'Medya',open_camera:'Kamera',create_event:'Takvim',web_search:'Google',youtube:'YouTube',navigate:'Yol tarifi',open_url:'Bağlantı',open_settings:'Ayarlar',screen_read:'Ekran okundu',screen_click:'Dokunma',screen_type:'Yazma',screen_scroll:'Kaydırma',phone_action:'Sistem',wait:'Bekleme',save_note:'Not',list_notes:'Notlar',delete_note:'Not silme',set_persona:'Kişilik',set_personality:'Kişilik ayarı'};
+function apiBase(c){
+  c = c || cfg;
+  if(c.provider !== 'custom') return 'https://api.anthropic.com';
+  let b = String(c.baseUrl||'').trim().replace(/\/+$/,'');
+  if(!/^https?:\/\//i.test(b)) b = 'https://'+b;
+  return b.replace(/\/v1$/i,'');
+}
+function apiModel(c){ c = c || cfg; return c.provider === 'custom' && c.customModel ? c.customModel.trim() : c.model; }
+function apiHeaders(c){ c = c || cfg; return {'x-api-key': c.key, 'anthropic-version':'2023-06-01', 'content-type':'application/json'}; }
+function apiError(status, m){
+  if(status===401) return 'API anahtarı geçersiz. Ayarlardan kontrol eder misin?';
+  if(status===402) return 'Bakiye yetersiz. Hesabına kredi yüklemen gerekiyor.';
+  if(status===403) return 'Bu anahtar seçilen modele erişemiyor. Ayarlardan başka bir model seç.';
+  if(status===404) return 'Model ya da adres bulunamadı: '+m;
+  if(status===429) return 'Çok fazla istek gönderildi, biraz sonra tekrar deneyelim.';
+  if(/credit|balance/i.test(m)) return 'Hesapta kredi yok, yükleme yapman gerekiyor.';
+  if(status===0) return 'Sunucuya bağlanılamadı: '+m;
+  return 'Yapay zekâya ulaşamadım ('+status+'): '+m;
+}
 async function askClaude(text){
   const snapshot = history.slice();
   history.push({role:'user', content:text});
   history = trimHistory(history);
   for(let step=0; step<24; step++){
-    const r = await http('POST', 'https://api.anthropic.com/v1/messages', {
-      'x-api-key': cfg.key, 'anthropic-version':'2023-06-01', 'content-type':'application/json'
-    }, JSON.stringify({model:cfg.model, max_tokens:1024, system:systemPrompt(), tools:TOOL_DEFS, messages:history}));
+    const r = await http('POST', apiBase()+'/v1/messages', apiHeaders(),
+      JSON.stringify({model:apiModel(), max_tokens:1024, system:systemPrompt(), tools:TOOL_DEFS, messages:history}));
     let data; try{ data = JSON.parse(r.body); }catch(e){ data = null; }
     if(r.status !== 200 || !data || !data.content){
       history = snapshot;
       const m = (data && data.error && data.error.message) || ('HTTP '+r.status);
-      let msg = 'Yapay zekâya ulaşamadım: '+m;
-      if(r.status===401) msg = 'Claude API anahtarı geçersiz. Ayarlardan kontrol eder misin?';
-      if(r.status===429) msg = 'Çok fazla istek gönderildi, biraz sonra tekrar deneyelim.';
-      if(/credit|balance/i.test(m)) msg = 'Claude hesabında kredi yok. console.anthropic.com üzerinden kredi yüklemen gerekiyor.';
-      return {text:msg, err:true};
+      return {text:apiError(r.status, m), err:true};
     }
     history.push({role:'assistant', content:data.content});
     const uses = data.content.filter(b => b.type==='tool_use');
@@ -822,6 +849,11 @@ function showEngine(){
   const e = $('sEngine').value;
   ['Gemini','Azure','Device','Eleven','Openai'].forEach(g => $('grp'+g).classList.toggle('hide', e !== g.toLowerCase()));
   $('sElCustom').classList.toggle('hide', $('sElVoice').value !== 'custom');
+  const custom = $('sProvider').value === 'custom';
+  $('grpCustom').classList.toggle('hide', !custom);
+  $('grpModel').classList.toggle('hide', custom);
+  $('sKeyLabel').textContent = custom ? 'API anahtarı (servisin panelinden)' : 'Claude API anahtarı';
+  $('sKey').placeholder = custom ? 'sk-...' : 'sk-ant-...';
   $('sPitchV').textContent = (+$('sPitch').value).toFixed(2);
   $('sHumorV').textContent = $('sHumor').value+'%';
   $('sHonestyV').textContent = $('sHonesty').value+'%';
@@ -830,7 +862,7 @@ function formCfg(){
   return {
     persona:$('sPersona').value, title:$('sTitle').value.trim()||'efendim', city:$('sCity').value.trim()||'İstanbul',
     humor:+$('sHumor').value, honesty:+$('sHonesty').value, auto:$('sAuto').checked ? '1' : '0',
-    key:$('sKey').value.trim(), model:$('sModel').value,
+    key:$('sKey').value.trim(), model:$('sModel').value, provider:$('sProvider').value, baseUrl:$('sBase').value.trim()||'https://api.llmsrelay.com', customModel:$('sCustomModel').value.trim(),
     engine:$('sEngine').value, voice:$('sVoice').value, pitch:$('sPitch').value, rate:$('sRate').value,
     gmKey:$('sGmKey').value.trim(), gmVoice:$('sGmVoice').value, gmModel:$('sGmModel').value,
     azKey:$('sAzKey').value.trim(), azRegion:$('sAzRegion').value.trim()||'westeurope', azVoice:$('sAzVoice').value,
@@ -844,7 +876,7 @@ function openSheet(){
   const set = (id, v) => { $(id).value = v; };
   set('sPersona', cfg.persona); set('sTitle', cfg.title); set('sCity', cfg.city); set('sHumor', cfg.humor); set('sHonesty', cfg.honesty);
   $('sAuto').checked = cfg.auto === '1';
-  set('sKey', cfg.key); set('sModel', cfg.model);
+  set('sKey', cfg.key); set('sModel', cfg.model); set('sProvider', cfg.provider); set('sBase', cfg.baseUrl); set('sCustomModel', cfg.customModel);
   set('sEngine', cfg.engine); fillVoices(); set('sVoice', cfg.voice); set('sPitch', cfg.pitch); set('sRate', cfg.rate);
   set('sGmKey', cfg.gmKey); set('sGmVoice', cfg.gmVoice); set('sGmModel', cfg.gmModel);
   set('sAzKey', cfg.azKey); set('sAzRegion', cfg.azRegion); set('sAzVoice', cfg.azVoice);
@@ -877,6 +909,37 @@ $('sTest').onclick = () => {
   const need = {gemini:'gmKey', azure:'azKey', eleven:'elKey', openai:'oaKey'}[c.engine];
   if(need && !c[need]){ addNote('Önce bu ses motorunun API anahtarını gir.'); return; }
   speak(c.persona==='tars' ? 'TARS çevrimiçi. Mizah ayarım yüzde yetmiş beş. Bu ses iş görür.' : 'Merhaba, ben ZEUS. Bu sesle konuşmamı ister misin?', c);
+};
+$('sFetchModels').onclick = async () => {
+  const c = Object.assign({}, cfg, formCfg());
+  if(!c.key){ $('modelsHint').textContent = 'Önce API anahtarını gir.'; return; }
+  $('modelsHint').textContent = 'Modeller alınıyor…';
+  const r = await http('GET', apiBase(c)+'/v1/models', {'x-api-key':c.key, 'anthropic-version':'2023-06-01'}, '');
+  let ids = [];
+  try{ const j = JSON.parse(r.body); ids = (j.data||[]).map(m => m.id).filter(Boolean); }catch(e){}
+  if(r.status !== 200 || !ids.length){
+    let m = ''; try{ m = JSON.parse(r.body).error.message; }catch(e){ m = r.body ? String(r.body).slice(0,80) : ''; }
+    $('modelsHint').textContent = apiError(r.status, m); return;
+  }
+  const dl = $('modelList'); dl.innerHTML = '';
+  ids.forEach(id => { const o = document.createElement('option'); o.value = id; dl.appendChild(o); });
+  $('modelsHint').textContent = 'Erişebildiğin modeller: '+ids.join(', ');
+  if(!c.customModel){ $('sCustomModel').value = ids.find(i => /haiku/.test(i)) || ids[0]; liveSave(); }
+};
+$('sTestAi').onclick = async () => {
+  const c = Object.assign({}, cfg, formCfg());
+  if(!c.key){ $('modelsHint').textContent = 'Önce API anahtarını gir.'; return; }
+  if(!apiModel(c)){ $('modelsHint').textContent = 'Önce model ID gir.'; return; }
+  $('modelsHint').textContent = 'Deneniyor…';
+  const r = await http('POST', apiBase(c)+'/v1/messages', apiHeaders(c),
+    JSON.stringify({model:apiModel(c), max_tokens:20, messages:[{role:'user', content:'Sadece "Bağlantı tamam" yaz.'}]}));
+  let j = null; try{ j = JSON.parse(r.body); }catch(e){}
+  if(r.status === 200 && j && j.content){
+    const t = j.content.filter(b=>b.type==='text').map(b=>b.text).join(' ');
+    $('modelsHint').textContent = '✓ Çalışıyor ('+apiModel(c)+'): '+t;
+  } else {
+    $('modelsHint').textContent = apiError(r.status, (j && j.error && j.error.message) || String(r.body||'').slice(0,80));
+  }
 };
 $('sClear').onclick = () => { history = []; store.set('history', []); log.innerHTML = ''; addNote('Sohbet geçmişi silindi.'); };
 $('sNotes').onclick = () => { store.set('notes', []); addNote('Notlar silindi.'); };
