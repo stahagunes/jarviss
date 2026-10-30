@@ -49,6 +49,11 @@ import android.telephony.SmsManager;
 import android.util.Base64;
 import android.view.KeyEvent;
 import android.view.WindowManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
+import android.media.ExifInterface;
+import android.webkit.PermissionRequest;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -95,6 +100,83 @@ public class MainActivity extends Activity {
     private long lastRms = 0;
     static volatile boolean visible = false;
     private boolean wakePending = false;
+    private PermissionRequest pendingCamReq;
+    private boolean pendingNativePhoto = false;
+    private boolean pendingNativeFront = false;
+
+    @Override
+    public void onRequestPermissionsResult(int code, String[] perms, int[] results) {
+        super.onRequestPermissionsResult(code, perms, results);
+        if (code == 5) {
+            boolean ok = results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED;
+            if (pendingCamReq != null) {
+                if (ok) pendingCamReq.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
+                else pendingCamReq.deny();
+                pendingCamReq = null;
+            }
+            if (pendingNativePhoto) {
+                pendingNativePhoto = false;
+                if (ok) startNativeCamera(pendingNativeFront);
+                else js("onPhoto('', 'Kamera izni verilmedi')");
+            }
+        }
+    }
+
+    private void startNativeCamera(boolean front) {
+        try {
+            File f = PhotoProvider.file(this);
+            if (f.exists()) f.delete();
+            Intent i = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            i.putExtra(MediaStore.EXTRA_OUTPUT, PhotoProvider.uri());
+            i.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            if (front) {
+                i.putExtra("android.intent.extras.CAMERA_FACING", 1);
+                i.putExtra("android.intent.extras.LENS_FACING_FRONT", 1);
+                i.putExtra("android.intent.extra.USE_FRONT_CAMERA", true);
+            }
+            startActivityForResult(i, 77);
+        } catch (Exception e) {
+            js("onPhoto('', " + q("Kamera açılamadı: " + e.getMessage()) + ")");
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int req, int res, Intent data) {
+        super.onActivityResult(req, res, data);
+        if (req != 77) return;
+        if (res != RESULT_OK) { js("onPhoto('', 'iptal')"); return; }
+        new Thread(() -> {
+            try {
+                File f = PhotoProvider.file(this);
+                BitmapFactory.Options o = new BitmapFactory.Options();
+                o.inJustDecodeBounds = true;
+                BitmapFactory.decodeFile(f.getAbsolutePath(), o);
+                int sample = 1;
+                while (Math.max(o.outWidth, o.outHeight) / (sample * 2) >= 1280) sample *= 2;
+                o = new BitmapFactory.Options();
+                o.inSampleSize = sample;
+                Bitmap b = BitmapFactory.decodeFile(f.getAbsolutePath(), o);
+                if (b == null) throw new Exception("fotoğraf okunamadı");
+                int rot = 0;
+                try {
+                    int or = new ExifInterface(f.getAbsolutePath()).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+                    rot = or == ExifInterface.ORIENTATION_ROTATE_90 ? 90 : or == ExifInterface.ORIENTATION_ROTATE_180 ? 180 : or == ExifInterface.ORIENTATION_ROTATE_270 ? 270 : 0;
+                } catch (Exception ignored) { }
+                float scale = Math.min(1f, 1280f / Math.max(b.getWidth(), b.getHeight()));
+                Matrix m = new Matrix();
+                m.postScale(scale, scale);
+                if (rot != 0) m.postRotate(rot);
+                Bitmap out = Bitmap.createBitmap(b, 0, 0, b.getWidth(), b.getHeight(), m, true);
+                java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+                out.compress(Bitmap.CompressFormat.JPEG, 82, bos);
+                String b64 = Base64.encodeToString(bos.toByteArray(), Base64.NO_WRAP);
+                f.delete();
+                js("onPhoto(" + q(b64) + ", '')");
+            } catch (Exception e) {
+                js("onPhoto('', " + q("Fotoğraf işlenemedi: " + e.getMessage()) + ")");
+            }
+        }).start();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -111,7 +193,22 @@ public class MainActivity extends Activity {
         s.setDomStorageEnabled(true);
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setAllowFileAccess(true);
-        web.setWebChromeClient(new WebChromeClient());
+        web.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onPermissionRequest(final PermissionRequest req) {
+                main.post(() -> {
+                    boolean wantsVideo = false;
+                    for (String res : req.getResources()) if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(res)) wantsVideo = true;
+                    if (!wantsVideo) { req.deny(); return; }
+                    if (has(Manifest.permission.CAMERA)) {
+                        req.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
+                    } else {
+                        pendingCamReq = req;
+                        requestPermissions(new String[]{Manifest.permission.CAMERA}, 5);
+                    }
+                });
+            }
+        });
         web.setWebViewClient(new WebViewClient());
         web.addJavascriptInterface(new Bridge(), "Android");
         web.loadUrl("file:///android_asset/index.html");
@@ -919,6 +1016,14 @@ public class MainActivity extends Activity {
         }
 
         // ---------- ZEUS offline voice ----------
+
+        @JavascriptInterface
+        public void capturePhoto(boolean front) {
+            main.post(() -> {
+                if (has(Manifest.permission.CAMERA)) startNativeCamera(front);
+                else { pendingNativePhoto = true; pendingNativeFront = front; requestPermissions(new String[]{Manifest.permission.CAMERA}, 5); }
+            });
+        }
 
         @JavascriptInterface
         public boolean zeusVoiceAvailable() { return ZeusVoice.available(MainActivity.this); }
